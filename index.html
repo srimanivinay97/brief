@@ -2,78 +2,158 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Brief</title>
   <style>
-    body { font-family: -apple-system, system-ui, sans-serif; padding: 16px; }
-    pre { white-space: pre-wrap; word-break: break-word; background:#111; color:#0f0; padding:12px; border-radius:10px; }
-    .err { color: #ff3b30; font-weight: 600; }
+    body{margin:0;font-family:-apple-system,system-ui;background:#0b0b0f;color:#fff}
+    .wrap{padding:18px 16px 40px;max-width:560px;margin:0 auto}
+    h1{margin:10px 0 18px;font-size:32px;font-weight:800;letter-spacing:-.6px}
+    .card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;padding:14px 14px;margin:12px 0;backdrop-filter: blur(10px)}
+    .muted{opacity:.7;font-size:13px}
+    .row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+    .big{font-size:38px;font-weight:800;line-height:1}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;
+      background:rgba(255,255,255,.10);font-size:13px}
+    ul{list-style:none;padding:0;margin:10px 0 0}
+    li{padding:10px 0;border-top:1px solid rgba(255,255,255,.10)}
+    li:first-child{border-top:0}
+    a{color:#9ad}
+    .error{background:rgba(255,80,80,.12);border:1px solid rgba(255,80,80,.25)}
+    .ok{color:#9f9}
   </style>
 </head>
 <body>
-  <h2>Brief Debug</h2>
+  <div class="wrap">
+    <h1>Brief</h1>
 
-  <div id="status"></div>
+    <div id="status" class="card">
+      <div class="row">
+        <div>
+          <div class="muted">Status</div>
+          <div id="statusText">Waiting for data…</div>
+        </div>
+        <div class="pill" id="badge">—</div>
+      </div>
+      <div class="muted" style="margin-top:8px">
+        Tip: open with <span class="pill">?data=BASE64</span>
+      </div>
+    </div>
 
-  <h3>Raw data param</h3>
-  <pre id="raw"></pre>
+    <div id="weatherCard" class="card" style="display:none"></div>
+    <div id="eventsCard" class="card" style="display:none"></div>
+    <div id="rawCard" class="card" style="display:none"></div>
+  </div>
 
-  <h3>Decoded text</h3>
-  <pre id="decoded"></pre>
+<script>
+  function b64ToUtf8(b64){
+    // handle URL-safe base64 too
+    b64 = b64.replace(/-/g,'+').replace(/_/g,'/');
+    // pad
+    while (b64.length % 4) b64 += '=';
+    const bin = atob(b64);
+    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+    return new TextDecoder('utf-8').decode(bytes);
+  }
 
-  <h3>Parsed JSON</h3>
-  <pre id="json"></pre>
+  function deepTrimKeys(obj){
+    if (Array.isArray(obj)) return obj.map(deepTrimKeys);
+    if (obj && typeof obj === 'object'){
+      const out = {};
+      for (const [k,v] of Object.entries(obj)){
+        out[k.trim()] = deepTrimKeys(v);
+      }
+      return out;
+    }
+    return obj;
+  }
 
-  <script>
-    const $ = (id) => document.getElementById(id);
+  function qs(name){
+    return new URLSearchParams(location.search).get(name);
+  }
 
-    function getParam(name) {
-      const url = new URL(window.location.href);
-      return url.searchParams.get(name);
+  function setStatus(ok, text){
+    const status = document.getElementById('status');
+    const badge = document.getElementById('badge');
+    const st = document.getElementById('statusText');
+    st.textContent = text;
+    if(ok){
+      badge.textContent = "OK";
+      badge.className = "pill ok";
+      status.classList.remove('error');
+    }else{
+      badge.textContent = "ERR";
+      badge.className = "pill";
+      status.classList.add('error');
+    }
+  }
+
+  function render(data, decodedText){
+    // Weather
+    const w = data.weather;
+    if (w){
+      const loc = data.location || "—";
+      const temp = w.tempC ?? "—";
+      const cond = w.condition ?? "—";
+      const wc = document.getElementById('weatherCard');
+      wc.style.display = "block";
+      wc.innerHTML = `
+        <div class="row">
+          <div>
+            <div class="muted">Weather • ${loc}</div>
+            <div class="big">${temp}</div>
+            <div class="pill" style="margin-top:10px">${cond}</div>
+          </div>
+        </div>`;
     }
 
-    // Handles: URL encoding, URL-safe base64, missing padding, Unicode
-    function decodePayload(param) {
-      if (!param) throw new Error("No ?data= found in URL");
-
-      // 1) URL decode
-      let b64 = decodeURIComponent(param);
-
-      // 2) Convert URL-safe base64 -> normal base64
-      b64 = b64.replace(/-/g, "+").replace(/_/g, "/");
-
-      // 3) Fix missing padding
-      const pad = b64.length % 4;
-      if (pad) b64 += "=".repeat(4 - pad);
-
-      // 4) Decode base64 to bytes
-      const binary = atob(b64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-
-      // 5) Bytes -> UTF-8 string (fixes Unicode issues)
-      const text = new TextDecoder("utf-8").decode(bytes);
-
-      // 6) Parse JSON
-      const obj = JSON.parse(text);
-
-      return { text, obj, b64Len: b64.length };
+    // Events
+    const ev = data.events;
+    if (Array.isArray(ev) && ev.length){
+      const ec = document.getElementById('eventsCard');
+      ec.style.display = "block";
+      ec.innerHTML = `
+        <div class="row">
+          <div>
+            <div class="muted">Today</div>
+            <div style="font-size:20px;font-weight:700;margin-top:4px">Events</div>
+          </div>
+          <div class="pill">${ev.length}</div>
+        </div>
+        <ul>
+          ${ev.map(e => `<li><div class="row">
+              <div style="font-weight:650">${e.title ?? "Untitled"}</div>
+              <div class="muted">${e.time ?? ""}</div>
+          </div></li>`).join("")}
+        </ul>`;
     }
 
-    const dataParam = getParam("data");
-    $("raw").textContent = dataParam ?? "";
+    // Raw (optional)
+    const rc = document.getElementById('rawCard');
+    rc.style.display = "block";
+    rc.innerHTML = `
+      <div class="muted">Decoded JSON</div>
+      <pre style="white-space:pre-wrap;word-break:break-word;margin:10px 0 0;opacity:.9">${decodedText}</pre>
+    `;
+  }
 
-    try {
-      const out = decodePayload(dataParam);
-      $("status").textContent = `✅ OK (base64 length: ${out.b64Len})`;
-      $("decoded").textContent = out.text;
-      $("json").textContent = JSON.stringify(out.obj, null, 2);
-    } catch (e) {
-      $("status").innerHTML = `<span class="err">❌ Decode failed:</span> ${e.message}`;
-      $("decoded").textContent = "";
-      $("json").textContent = "";
-      console.error(e);
+  (function init(){
+    const b64 = qs('data');
+    if(!b64){
+      setStatus(false, "No data param found.");
+      return;
     }
-  </script>
+
+    try{
+      const decoded = b64ToUtf8(b64);
+      let parsed = JSON.parse(decoded);
+      parsed = deepTrimKeys(parsed); // ✅ fixes your “weather ” bug
+      setStatus(true, "Data received and parsed.");
+      render(parsed, JSON.stringify(parsed, null, 2));
+    }catch(e){
+      setStatus(false, "Failed to decode/parse: " + e.message);
+    }
+  })();
+</script>
 </body>
 </html>
