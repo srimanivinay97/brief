@@ -1,453 +1,165 @@
-/* =========================
-   Brief UI (simple + clean)
-   Reads base64 JSON from:
-   ?data=<base64>
-   ========================= */
-
-function $(id){ return document.getElementById(id); }
+function q(id){ return document.getElementById(id); }
 
 function safeNum(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
-
-function round1(n){
-  if (!Number.isFinite(n)) return null;
-  return Math.round(n * 10) / 10;
+function fmtInt(v, fallback="—"){
+  const n = safeNum(v);
+  return n === null ? fallback : String(Math.round(n));
+}
+function fmt1(v, fallback="—"){
+  const n = safeNum(v);
+  return n === null ? fallback : (Math.round(n * 10) / 10).toFixed(1);
+}
+function pick(obj, paths, fallback=null){
+  for (const p of paths){
+    const parts = p.split(".");
+    let cur = obj;
+    let ok = true;
+    for (const part of parts){
+      if (cur && Object.prototype.hasOwnProperty.call(cur, part)) cur = cur[part];
+      else { ok = false; break; }
+    }
+    if (ok && cur !== undefined) return cur;
+  }
+  return fallback;
 }
 
-function pad2(n){ return String(n).padStart(2, "0"); }
-
-function formatTimeHHMM(d){
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
-function formatDateLine(d){
-  const w = d.toLocaleDateString(undefined, { weekday: "long" });
-  const day = d.toLocaleDateString(undefined, { day: "2-digit" });
-  const mon = d.toLocaleDateString(undefined, { month: "short" });
-  return `${w} ${day} ${mon}`;
-}
-
-function greetingAndMode(hours){
-  if (hours >= 5 && hours < 12) return { greet: "Good morning", mode: "Morning brief" };
-  if (hours >= 12 && hours < 17) return { greet: "Good afternoon", mode: "Midday brief" };
-  if (hours >= 17 && hours < 22) return { greet: "Good evening", mode: "Evening brief" };
-  return { greet: "Good night", mode: "Night brief" };
-}
-
-function decodeDataParam(){
-  const params = new URLSearchParams(location.search);
-  const b64 = params.get("data");
-  if (!b64) return null;
-
+function parseDataFromUrl(){
+  const sp = new URLSearchParams(location.search);
+  const b64 = sp.get("data");
+  if (!b64) return {};
   try{
-    // URL-safe base64 fix
-    const fixed = b64.replace(/-/g, "+").replace(/_/g, "/");
-
-    // Decode
-    const jsonStr = decodeURIComponent(escape(atob(fixed)));
+    const jsonStr = decodeURIComponent(escape(atob(b64)));
     return JSON.parse(jsonStr);
   }catch(e){
-    console.error("Decode error:", e);
-    return null;
+    console.log("Bad data param", e);
+    return {};
   }
 }
 
-/* Sleep parsing supports:
-   - sleep.start, sleep.end (ISO)
-   - sleep.durationMinutes (number)
-   - sleep.duration string like "7h 15m"
-*/
-function parseSleepDurationMinutes(sleep){
-  if (!sleep) return null;
-
-  const dm = safeNum(sleep.durationMinutes);
-  if (dm != null) return Math.max(0, Math.round(dm));
-
-  // start/end
-  if (sleep.start && sleep.end){
-    const a = new Date(sleep.start);
-    const b = new Date(sleep.end);
-    if (!isNaN(a) && !isNaN(b)){
-      const diffMin = Math.round((b - a) / 60000);
-      if (Number.isFinite(diffMin)) return diffMin >= 0 ? diffMin : null;
-    }
-  }
-
-  // duration string
-  const s = (sleep.duration || "").toString().trim();
-  if (s){
-    const mh = s.match(/(\d+(\.\d+)?)\s*h/i);
-    const mm = s.match(/(\d+(\.\d+)?)\s*m/i);
-    let mins = 0;
-
-    if (mh){
-      const h = safeNum(mh[1]);
-      if (h != null) mins += Math.round(h * 60);
-    }
-    if (mm){
-      const m = safeNum(mm[1]);
-      if (m != null) mins += Math.round(m);
-    }
-    if (mins > 0) return mins;
-  }
-
-  return null;
+function getTheme(hour){
+  // morning 5-11, evening 12-18, night 19-4
+  if (hour >= 5 && hour <= 11) return "morning";
+  if (hour >= 12 && hour <= 18) return "evening";
+  return "night";
 }
 
-function formatDuration(mins){
-  if (!Number.isFinite(mins) || mins <= 0) return "—";
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h <= 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
+function headerEmoji(theme){
+  if (theme === "morning") return "☀️🐦🌅";
+  if (theme === "evening") return "🌇✨";
+  return "🌙⭐️🦉";
 }
 
-/* Steps estimates if not provided */
-function estimateDistanceKm(steps){
-  if (!Number.isFinite(steps) || steps <= 0) return null;
-  return steps * 0.00075; // rough average
-}
-
-function estimateCalories(steps){
-  if (!Number.isFinite(steps) || steps <= 0) return null;
-  return Math.round(steps * 0.04); // rough
-}
-
-function estimateActiveMinutes(steps){
-  if (!Number.isFinite(steps) || steps <= 0) return null;
-  return Math.max(1, Math.round(steps / 100));
-}
-
-/* Events + News */
-function parseEvents(data){
-  const arr = data?.events || data?.calendar?.events || [];
-  return Array.isArray(arr) ? arr : [];
-}
-
-function parseNews(data){
-  const arr = data?.news || [];
-  return Array.isArray(arr) ? arr : [];
-}
-
-function toTimeLabel(v){
-  if (!v) return null;
-  const s = String(v).trim();
-  if (/^\d{1,2}:\d{2}$/.test(s)) return s;
-
-  const d = new Date(s);
-  if (!isNaN(d)) return formatTimeHHMM(d);
-
-  return s;
-}
-
-function setText(id, val){
-  const el = $(id);
-  if (!el) return;
-  el.textContent = (val === null || val === undefined || val === "") ? "—" : String(val);
-}
-
-/* Avoid XSS in titles */
-function escapeHtml(s){
-  return String(s)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+function applyTheme(theme){
+  document.body.dataset.theme = theme;
+  // stars only at night
+  q("stars").style.opacity = theme === "night" ? "1" : "0";
 }
 
 function render(data){
-  const now = new Date();
-  const gm = greetingAndMode(now.getHours());
+  // ---- time / meta ----
+  const hour =
+    safeNum(pick(data, ["meta.local_time_hour","local_time_hour"], null))
+    ?? new Date().getHours();
 
-  setText("greeting", gm.greet);
-  setText("briefMode", gm.mode);
-  setText("dateLine", formatDateLine(now));
-  setText("timeNow", formatTimeHHMM(now));
-  setText("updatedAt", data?.updatedAt ? `Updated: ${data.updatedAt}` : "");
+  const theme = getTheme(hour);
+  applyTheme(theme);
 
-  /* WEATHER */
-  const w = data?.weather || {};
-  const loc = data?.location || w.location || "Now";
-  setText("weatherLocation", loc);
+  const greeting =
+    pick(data, ["meta.greeting"], null) ||
+    (theme === "morning" ? "Good morning" : theme === "evening" ? "Good evening" : "Good night");
 
-  const tempC = round1(safeNum(w.tempC));
-  const feels = round1(safeNum(w.feelsLike));
-  const condNow = w.condition || "—";
+  q("greeting").textContent = `${greeting} ${headerEmoji(theme)}`;
 
-  setText("tempNow", tempC ?? "—");
-  setText("tempFeels", feels != null ? `${feels}°C` : "—");
-  setText("condNow", condNow || "—");
+  const dateLine = pick(data, ["meta.date_human","date_human","date"], null);
+  if (dateLine) q("dateLine").textContent = String(dateLine);
 
-  const tonightSummary = w?.tonight?.summary ?? null;
-  const tonightRain = safeNum(w?.tonight?.rainChancePercent);
-  const tonightWind = round1(safeNum(w?.tonight?.windMph));
+  const timeText = pick(data, ["meta.time_hhmm","time_hhmm"], null);
+  if (timeText) q("timePill").textContent = String(timeText);
 
-  setText("tonightSummary", tonightSummary || "—");
-  setText("tonightRain", tonightRain != null ? Math.round(tonightRain) : "—");
-  setText("tonightWind", tonightWind ?? "—");
+  const briefType = pick(data, ["meta.brief_type","brief_type"], null);
+  if (briefType) q("briefPill").textContent = `${briefType[0].toUpperCase()}${briefType.slice(1)} brief`;
 
-  // Tomorrow (optional)
-  const tmr = w?.tomorrow || {};
-  const tomorrowDate = tmr.date || null;
-  const tomorrowMin = round1(safeNum(tmr.minC));
-  const tomorrowMax = round1(safeNum(tmr.maxC));
-  const tomorrowSummary = tmr.summary || null;
+  // ---- weather ----
+  // FIX FOR “MANY DIGITS”: show location, NOT raw coords
+  const loc = pick(data, ["meta.location","location","weather.location_name"], "—");
+  q("weatherMeta").textContent = loc;
 
-  /* STEPS */
-  const steps = safeNum(data?.health?.steps);
-  setText("stepsToday", steps != null ? Math.round(steps) : "—");
+  const tempNow = pick(data, ["weather.now.temp_c","current_temperature_c"], null);
+  q("tempNow").textContent = fmtInt(tempNow, "—");
 
-  const distKm =
-    safeNum(data?.health?.distanceKm) ??
-    (steps != null ? estimateDistanceKm(steps) : null);
+  const feels = pick(data, ["weather.now.feels_like_c","feels_like_c"], null);
+  q("feelsLike").textContent = (feels === null ? "—" : `${fmtInt(feels)}°C`);
 
-  const cals =
-    safeNum(data?.health?.caloriesKcal) ??
-    (steps != null ? estimateCalories(steps) : null);
+  const nowSummary = pick(data, ["weather.now.summary","current_summary","weather_now_summary"], "—");
+  q("condNow").textContent = String(nowSummary);
 
-  const mins =
-    safeNum(data?.health?.activeMinutes) ??
-    (steps != null ? estimateActiveMinutes(steps) : null);
+  const tonightSummary = pick(data, ["weather.tonight.summary","tonight_summary"], "—");
+  q("tonightSummary").textContent = String(tonightSummary);
 
-  setText("stepsDistance", distKm != null ? `${round1(distKm)} km` : "—");
-  setText("stepsCalories", cals != null ? `${Math.round(cals)} kcal` : "—");
-  setText("stepsMinutes", mins != null ? `${Math.round(mins)} min` : "—");
+  const rain = pick(data, ["weather.tonight.chance_of_rain_percent","tonight_rain_percent"], null);
+  q("rainChance").textContent = (rain === null ? "—" : `${fmtInt(rain)}%`);
 
-  /* HEART RATE */
-  const hr = safeNum(data?.health?.heartRateBpm);
-  setText("hrValue", hr != null ? Math.round(hr) : "—");
-  setText("hrNote", hr != null ? "Latest reading" : "No heart rate data");
+  const wind = pick(data, ["weather.tonight.wind_speed_mph","tonight_wind_mph"], null);
+  q("windMph").textContent = (wind === null ? "—" : `${fmtInt(wind)} mph`);
 
-  /* SLEEP */
-  const sleep = data?.sleep || null;
-  const sleepMins = parseSleepDurationMinutes(sleep);
-  setText("sleepDuration", sleepMins != null ? formatDuration(sleepMins) : "—");
-  setText("sleepQuality", sleep?.quality ?? "—");
-  setText("sleepNotes", sleep?.notes ?? "—");
+  // ---- steps (FIX: accept multiple keys) ----
+  const steps =
+    pick(data, ["health.steps.count","steps_today","stepsToday","health.steps_today"], null);
 
-  const sStart = sleep?.start ? toTimeLabel(sleep.start) : null;
-  const sEnd = sleep?.end ? toTimeLabel(sleep.end) : null;
-  setText("sleepWindow", (sStart && sEnd) ? `${sStart} → ${sEnd}` : "—");
+  q("stepsCount").textContent = fmtInt(steps, "—");
 
-  /* EVENTS */
-  const events = parseEvents(data);
-  const eventsList = $("eventsList");
-  eventsList.innerHTML = "";
+  // optional extras (show — if missing)
+  q("stepsDistance").textContent = pick(data, ["health.steps.distance_km","steps_distance_km"], "—");
+  q("stepsCalories").textContent = pick(data, ["health.steps.calories","steps_calories"], "—");
+  q("stepsActiveMin").textContent = pick(data, ["health.steps.duration_min","steps_duration_min"], "—");
 
-  if (!events.length){
-    setText("firstMeeting", "No events today");
+  // ---- heart ----
+  const bpm = pick(data, ["health.heart_rate.bpm","heart_rate_bpm"], null);
+  q("hrBpm").textContent = bpm === null ? "—" : fmtInt(bpm);
+
+  // ---- sleep ----
+  const sleepDur = pick(data, ["health.sleep.duration_text","sleep_duration_text"], null);
+  q("sleepDuration").textContent = sleepDur ? String(sleepDur) : "—";
+
+  q("sleepQuality").textContent = pick(data, ["health.sleep.quality","sleep_quality"], "—");
+  q("sleepNotes").textContent = pick(data, ["health.sleep.notes","sleep_notes"], "—");
+
+  const start = pick(data, ["health.sleep.start_local","sleep_start_local"], null);
+  const end = pick(data, ["health.sleep.end_local","sleep_end_local"], null);
+  q("sleepWindow").textContent = (start && end) ? `${start} → ${end}` : "—";
+
+  // ---- events ----
+  const nextTitle = pick(data, ["calendar.next_event.title","next_event_title"], null);
+  const nextTime  = pick(data, ["calendar.next_event.start_local","next_event_start_local"], null);
+
+  const eventBox = q("nextEvent");
+  if (nextTitle){
+    eventBox.querySelector(".event-title").textContent = nextTitle;
+    eventBox.querySelector(".event-time").textContent = nextTime || "—";
   } else {
-    const sorted = [...events].sort((a,b)=>{
-      // Prefer ISO datetime; HH:MM sorts as string fallback later
-      const da = new Date(a.start || a.time || 0);
-      const db = new Date(b.start || b.time || 0);
-      const ta = isNaN(da) ? null : da.getTime();
-      const tb = isNaN(db) ? null : db.getTime();
-      if (ta != null && tb != null) return ta - tb;
-
-      const sa = String(a.start || a.time || "");
-      const sb = String(b.start || b.time || "");
-      return sa.localeCompare(sb);
-    });
-
-    const first = sorted[0];
-    const firstTime = toTimeLabel(first.start || first.time);
-    const firstTitle = first.title || first.summary || "Meeting";
-    setText("firstMeeting", firstTime ? `First meeting: ${firstTime} • ${firstTitle}` : `First meeting: ${firstTitle}`);
-
-    for (const ev of sorted.slice(0,5)){
-      const title = ev.title || ev.summary || "Event";
-      const time = toTimeLabel(ev.start || ev.time) || "—";
-      const loc2 = ev.location ? ` • ${ev.location}` : "";
-      const item = document.createElement("div");
-      item.className = "item";
-      item.innerHTML = `
-        <div class="itemTitle">${escapeHtml(title)}</div>
-        <div class="itemMeta">${escapeHtml(time)}${escapeHtml(loc2)}</div>
-      `;
-      eventsList.appendChild(item);
-    }
+    eventBox.querySelector(".event-title").textContent = "No upcoming events";
+    eventBox.querySelector(".event-time").textContent = "—";
   }
 
-  /* NEWS */
-  const news = parseNews(data);
-  const newsList = $("newsList");
-  newsList.innerHTML = "";
-
-  if (!news.length){
-    const item = document.createElement("div");
-    item.className = "item";
-    item.innerHTML = `<div class="itemTitle">No news provided</div><div class="itemMeta">—</div>`;
-    newsList.appendChild(item);
+  // ---- news ----
+  const items = pick(data, ["news.top_items"], []);
+  const newsBox = q("newsBox");
+  if (Array.isArray(items) && items.length){
+    newsBox.innerHTML = items.slice(0,4).map(x => `• ${String(x)}`).join("<br>");
   } else {
-    for (const n of news.slice(0,5)){
-      const title = n.title || n.headline || "News";
-      const source = n.source ? ` • ${n.source}` : "";
-      const when = n.time ? ` • ${toTimeLabel(n.time)}` : "";
-      const item = document.createElement("div");
-      item.className = "item";
-      item.innerHTML = `
-        <div class="itemTitle">${escapeHtml(title)}</div>
-        <div class="itemMeta">${escapeHtml((source + when).trim() || "—")}</div>
-      `;
-      newsList.appendChild(item);
-    }
+    newsBox.textContent = "No news items";
   }
 
-  /* BRIEF (Morning vs Evening, ONLY uses provided data) */
-  const lines = [];
-  const h = now.getHours();
-  const isMorning = (h >= 5 && h < 12);
-  const isEvening = (h >= 17 && h < 22);
+  // ---- brief text + updated ----
+  const brief = pick(data, ["brief_text.evening","brief_text.morning","brief","brief_text"], null);
+  q("briefText").textContent = brief ? String(brief) : "—";
 
-  // Weather now (always)
-  if (tempC != null || condNow){
-    const parts = [];
-    if (tempC != null) parts.push(`${tempC}°C`);
-    if (condNow) parts.push(condNow);
-    if (feels != null) parts.push(`(feels like ${feels}°C)`);
-    lines.push(`Weather now: ${parts.filter(Boolean).join(" ")}.`);
-  }
-
-  if (isMorning){
-    // Sleep first
-    if (sleepMins != null) lines.push(`Sleep: ${formatDuration(sleepMins)}.`);
-    else lines.push("Sleep: no data.");
-
-    // Steps + HR
-    if (steps != null){
-      const parts = [`Steps: ${Math.round(steps)}`];
-      if (distKm != null) parts.push(`${round1(distKm)} km`);
-      if (cals != null) parts.push(`${Math.round(cals)} kcal`);
-      lines.push(parts.join(" • ") + ".");
-    } else {
-      lines.push("Steps: no data.");
-    }
-
-    if (hr != null) lines.push(`Heart rate: ${Math.round(hr)} bpm.`);
-
-    // First meeting
-    if (events.length){
-      const sorted = [...events].sort((a,b)=>{
-        const sa = String(a.start || a.time || "");
-        const sb = String(b.start || b.time || "");
-        return sa.localeCompare(sb);
-      });
-      const first = sorted[0];
-      const firstTime = toTimeLabel(first.start || first.time);
-      const firstTitle = first.title || first.summary || "Meeting";
-      lines.push(firstTime ? `First meeting: ${firstTime} • ${firstTitle}.` : `First meeting: ${firstTitle}.`);
-    } else {
-      lines.push("Events: none today.");
-    }
-
-    // Tomorrow outlook
-    if (tomorrowMin != null || tomorrowMax != null || tomorrowSummary){
-      const range =
-        (tomorrowMin != null && tomorrowMax != null) ? `${tomorrowMin}–${tomorrowMax}°C` :
-        (tomorrowMin != null) ? `min ${tomorrowMin}°C` :
-        (tomorrowMax != null) ? `max ${tomorrowMax}°C` : null;
-
-      const tParts = [];
-      if (tomorrowDate) tParts.push(`${tomorrowDate}`);
-      if (range) tParts.push(range);
-      if (tomorrowSummary) tParts.push(tomorrowSummary);
-
-      lines.push(`Tomorrow: ${tParts.join(" • ")}.`);
-    }
-
-    // Top news
-    if (news.length){
-      const top = news[0];
-      lines.push(`Top news: ${top.title || top.headline || "—"}.`);
-    } else {
-      lines.push("News: none provided.");
-    }
-  }
-  else if (isEvening){
-    // Tonight focus
-    if (tonightSummary || tonightRain != null || tonightWind != null){
-      const tParts = [];
-      if (tonightSummary) tParts.push(tonightSummary);
-      if (tonightRain != null) tParts.push(`${Math.round(tonightRain)}% rain`);
-      if (tonightWind != null) tParts.push(`${tonightWind} mph wind`);
-      lines.push(`Tonight: ${tParts.join(" • ")}.`);
-    }
-
-    // Steps so far + HR
-    if (steps != null){
-      const parts = [`Steps so far: ${Math.round(steps)}`];
-      if (distKm != null) parts.push(`${round1(distKm)} km`);
-      if (cals != null) parts.push(`${Math.round(cals)} kcal`);
-      if (mins != null) parts.push(`${Math.round(mins)} min active`);
-      lines.push(parts.join(" • ") + ".");
-    } else {
-      lines.push("Steps: no data.");
-    }
-
-    if (hr != null) lines.push(`Heart rate: ${Math.round(hr)} bpm.`);
-
-    // Next event (best effort)
-    if (events.length){
-      const sorted = [...events].sort((a,b)=>{
-        const sa = String(a.start || a.time || "");
-        const sb = String(b.start || b.time || "");
-        return sa.localeCompare(sb);
-      });
-      const next = sorted[0];
-      const nextTime = toTimeLabel(next.start || next.time);
-      const nextTitle = next.title || next.summary || "Event";
-      lines.push(nextTime ? `Next event: ${nextTime} • ${nextTitle}.` : `Next event: ${nextTitle}.`);
-    } else {
-      lines.push("Events: none today.");
-    }
-
-    // Tomorrow quick look
-    if (tomorrowMin != null || tomorrowMax != null || tomorrowSummary){
-      const range =
-        (tomorrowMin != null && tomorrowMax != null) ? `${tomorrowMin}–${tomorrowMax}°C` :
-        (tomorrowMin != null) ? `min ${tomorrowMin}°C` :
-        (tomorrowMax != null) ? `max ${tomorrowMax}°C` : null;
-
-      const tParts = [];
-      if (range) tParts.push(range);
-      if (tomorrowSummary) tParts.push(tomorrowSummary);
-      lines.push(`Tomorrow: ${tParts.join(" • ")}.`);
-    }
-
-    // Top news
-    if (news.length){
-      const top = news[0];
-      lines.push(`Top news: ${top.title || top.headline || "—"}.`);
-    } else {
-      lines.push("News: none provided.");
-    }
-  }
-  else{
-    // Midday/Night: keep it minimal
-    if (steps != null) lines.push(`Steps: ${Math.round(steps)}.`);
-    if (hr != null) lines.push(`Heart rate: ${Math.round(hr)} bpm.`);
-    if (sleepMins != null) lines.push(`Sleep: ${formatDuration(sleepMins)}.`);
-    if (events.length){
-      const first = events[0];
-      const firstTime = toTimeLabel(first.start || first.time);
-      const firstTitle = first.title || first.summary || "Event";
-      lines.push(firstTime ? `Next event: ${firstTime} • ${firstTitle}.` : `Next event: ${firstTitle}.`);
-    } else {
-      lines.push("Events: none.");
-    }
-    if (news.length) lines.push(`Top news: ${news[0].title || news[0].headline || "—"}.`);
-  }
-
-  setText("briefText", lines.join("\n"));
+  const updated = pick(data, ["meta.updated_at_local","updated_at"], null);
+  q("updatedAt").textContent = updated ? `Updated: ${updated}` : "Updated: —";
 }
 
-/* Boot */
-(function init(){
-  const data = decodeDataParam() || {};
-  render(data);
-})();
+// Run
+render(parseDataFromUrl());
