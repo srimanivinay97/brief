@@ -4,167 +4,156 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Brief</title>
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="wrap">
+  <div id="sky" aria-hidden="true"></div>
+  <div id="stars" aria-hidden="true"></div>
+
+  <main class="wrap">
     <header class="top">
       <div class="top-left">
-        <div id="greeting" class="greeting">Hello</div>
-        <div id="dateLine" class="dateLine">—</div>
+        <div class="greeting" id="greeting">Good evening</div>
+        <div class="sub" id="dateLine">Friday 26 Dec</div>
       </div>
+
       <div class="top-right">
-        <div id="timeNow" class="pill">—</div>
-        <div id="briefMode" class="pill ghost">—</div>
+        <div class="pill" id="timePill">20:40</div>
+        <div class="pill" id="briefPill">Evening brief</div>
       </div>
     </header>
 
-    <main class="grid">
+    <section class="card">
+      <div class="card-head">
+        <h2>Weather</h2>
+        <div class="pill small" id="weatherMeta">London</div>
+      </div>
 
-      <!-- WEATHER (top) -->
-      <section class="card hero" id="cardWeather">
-        <div class="cardHead">
-          <div class="cardTitle">Weather</div>
-          <div class="pill" id="weatherLocation">Now</div>
+      <div class="weather-grid">
+        <div class="big-temp">
+          <div class="temp" id="tempNow">4</div>
+          <div class="unit">°C</div>
         </div>
 
-        <div class="heroRow">
-          <div class="bigNumber">
-            <span id="tempNow">—</span><span class="unit">°C</span>
-          </div>
-          <div class="heroMeta">
-            <div class="metaLine">
-              <span class="muted">Feels like</span>
-              <span id="tempFeels" class="strong">—°C</span>
-            </div>
-            <div class="metaLine">
-              <span class="muted">Condition</span>
-              <span id="condNow" class="strong">—</span>
-            </div>
-          </div>
+        <div class="mini-card">
+          <div class="label">Feels like</div>
+          <div class="value" id="feelsLike">1°C</div>
         </div>
 
-        <div class="miniGrid">
-          <div class="mini">
-            <div class="miniLabel">Tonight</div>
-            <div class="miniValue" id="tonightSummary">—</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Rain chance</div>
-            <div class="miniValue"><span id="tonightRain">—</span>%</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Wind</div>
-            <div class="miniValue"><span id="tonightWind">—</span> mph</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- STEPS -->
-      <section class="card" id="cardSteps">
-        <div class="cardHead">
-          <div class="cardTitle">Steps</div>
-          <div class="pill ghost">Today</div>
+        <div class="mini-card">
+          <div class="label">Condition</div>
+          <div class="value" id="condNow">Mostly clear</div>
         </div>
 
-        <div class="bigNumber">
-          <span id="stepsToday">—</span>
+        <div class="mini-card">
+          <div class="label">Tonight</div>
+          <div class="value" id="tonightSummary">Mostly clear</div>
         </div>
 
-        <div class="miniGrid">
-          <div class="mini">
-            <div class="miniLabel">Distance</div>
-            <div class="miniValue" id="stepsDistance">—</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Calories</div>
-            <div class="miniValue" id="stepsCalories">—</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Active minutes</div>
-            <div class="miniValue" id="stepsMinutes">—</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- HEART RATE -->
-      <section class="card" id="cardHR">
-        <div class="cardHead">
-          <div class="cardTitle">Heart rate</div>
-          <div class="pill ghost">Latest</div>
+        <div class="mini-card">
+          <div class="label">Rain chance</div>
+          <div class="value" id="rainChance">0%</div>
         </div>
 
-        <div class="bigNumber">
-          <span id="hrValue">—</span><span class="unit"> bpm</span>
+        <div class="mini-card">
+          <div class="label">Wind</div>
+          <div class="value" id="windMph">7 mph</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Steps</h2>
+        <div class="pill small">Today</div>
+      </div>
+
+      <div class="steps-grid">
+        <div class="steps-big" id="stepsCount">210</div>
+
+        <div class="mini-card">
+          <div class="label">Distance</div>
+          <div class="value" id="stepsDistance">—</div>
         </div>
 
-        <div class="subtext" id="hrNote">—</div>
-      </section>
-
-      <!-- SLEEP -->
-      <section class="card" id="cardSleep">
-        <div class="cardHead">
-          <div class="cardTitle">Sleep</div>
-          <div class="pill ghost" id="sleepTag">Last night</div>
+        <div class="mini-card">
+          <div class="label">Calories</div>
+          <div class="value" id="stepsCalories">—</div>
         </div>
 
-        <div class="bigNumber">
-          <span id="sleepDuration">—</span>
+        <div class="mini-card">
+          <div class="label">Active minutes</div>
+          <div class="value" id="stepsActiveMin">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Heart rate</h2>
+        <div class="pill small">Latest</div>
+      </div>
+      <div class="row">
+        <div class="hr-big"><span id="hrBpm">—</span> <small>bpm</small></div>
+        <div class="muted" id="hrNote">Latest reading</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Sleep</h2>
+        <div class="pill small">Last night</div>
+      </div>
+
+      <div class="sleep-grid">
+        <div class="sleep-big" id="sleepDuration">—</div>
+
+        <div class="mini-card">
+          <div class="label">Quality</div>
+          <div class="value" id="sleepQuality">—</div>
         </div>
 
-        <div class="miniGrid">
-          <div class="mini">
-            <div class="miniLabel">Quality</div>
-            <div class="miniValue" id="sleepQuality">—</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Notes</div>
-            <div class="miniValue" id="sleepNotes">—</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Start → End</div>
-            <div class="miniValue" id="sleepWindow">—</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- EVENTS -->
-      <section class="card" id="cardEvents">
-        <div class="cardHead">
-          <div class="cardTitle">Events</div>
-          <div class="pill ghost" id="eventsPill">Today</div>
+        <div class="mini-card">
+          <div class="label">Notes</div>
+          <div class="value" id="sleepNotes">—</div>
         </div>
 
-        <div class="subtext" id="firstMeeting">—</div>
-        <div class="list" id="eventsList"></div>
-      </section>
-
-      <!-- NEWS -->
-      <section class="card" id="cardNews">
-        <div class="cardHead">
-          <div class="cardTitle">News</div>
-          <div class="pill ghost">Top</div>
+        <div class="mini-card span2">
+          <div class="label">Start → End</div>
+          <div class="value" id="sleepWindow">—</div>
         </div>
+      </div>
+    </section>
 
-        <div class="list" id="newsList"></div>
-      </section>
+    <section class="card">
+      <div class="card-head">
+        <h2>Events</h2>
+        <div class="pill small">Today</div>
+      </div>
+      <div class="event" id="nextEvent">
+        <div class="event-title">No upcoming events</div>
+        <div class="event-time muted">—</div>
+      </div>
+    </section>
 
-      <!-- BRIEF TEXT (AI vibe, but only summarising provided info) -->
-      <section class="card" id="cardBrief">
-        <div class="cardHead">
-          <div class="cardTitle">Brief</div>
-          <div class="pill ghost">Summary</div>
-        </div>
-        <div class="briefText" id="briefText">—</div>
-      </section>
+    <section class="card">
+      <div class="card-head">
+        <h2>News</h2>
+        <div class="pill small">Top</div>
+      </div>
+      <div class="news" id="newsBox">No news items</div>
+    </section>
 
-    </main>
+    <section class="card">
+      <div class="card-head">
+        <h2>Brief</h2>
+        <div class="pill small">Summary</div>
+      </div>
+      <div class="brief" id="briefText">—</div>
+      <div class="footer muted" id="updatedAt">Updated: —</div>
+    </section>
+  </main>
 
-    <footer class="foot muted">
-      <span id="updatedAt">—</span>
-    </footer>
-  </div>
-
-  <script src="./app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
