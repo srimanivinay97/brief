@@ -2,158 +2,121 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Brief</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div id="sky" aria-hidden="true"></div>
-  <div id="stars" aria-hidden="true"></div>
+  <div class="bg" aria-hidden="true"></div>
+  <div class="stars" aria-hidden="true"></div>
 
   <main class="wrap">
     <header class="top">
-      <div class="top-left">
-        <div class="greeting" id="greeting">Good evening</div>
-        <div class="sub" id="dateLine">Friday 26 Dec</div>
+      <div>
+        <h1 id="greeting" class="greeting">Brief</h1>
+        <div class="subrow">
+          <div id="dateLine" class="dateLine">—</div>
+        </div>
       </div>
 
-      <div class="top-right">
-        <div class="pill" id="timePill">20:40</div>
-        <div class="pill" id="briefPill">Evening brief</div>
+      <div class="pillRow">
+        <span id="timePill" class="pill">--:--</span>
+        <span id="briefPill" class="pill ghost">Brief</span>
       </div>
     </header>
 
-    <section class="card">
-      <div class="card-head">
+    <section class="card hero">
+      <div class="cardHead">
         <h2>Weather</h2>
-        <div class="pill small" id="weatherMeta">London</div>
+        <span id="locationPill" class="pill mini ghost">—</span>
       </div>
 
-      <div class="weather-grid">
-        <div class="big-temp">
-          <div class="temp" id="tempNow">4</div>
-          <div class="unit">°C</div>
+      <div class="weatherGrid">
+        <div class="weatherBig">
+          <div id="tempBig" class="tempBig">—</div>
+          <div id="condBig" class="condBig">—</div>
+          <div id="tonightLine" class="tinyLine">Tonight: —</div>
         </div>
 
-        <div class="mini-card">
-          <div class="label">Feels like</div>
-          <div class="value" id="feelsLike">1°C</div>
-        </div>
-
-        <div class="mini-card">
-          <div class="label">Condition</div>
-          <div class="value" id="condNow">Mostly clear</div>
-        </div>
-
-        <div class="mini-card">
-          <div class="label">Tonight</div>
-          <div class="value" id="tonightSummary">Mostly clear</div>
-        </div>
-
-        <div class="mini-card">
-          <div class="label">Rain chance</div>
-          <div class="value" id="rainChance">0%</div>
-        </div>
-
-        <div class="mini-card">
-          <div class="label">Wind</div>
-          <div class="value" id="windMph">7 mph</div>
+        <div class="weatherSmall">
+          <div class="miniCard">
+            <div class="label">Feels like</div>
+            <div id="feelsLike" class="value">—</div>
+          </div>
+          <div class="miniCard">
+            <div class="label">Rain chance</div>
+            <div id="rainChance" class="value">—</div>
+          </div>
+          <div class="miniCard">
+            <div class="label">Wind</div>
+            <div id="wind" class="value">—</div>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="card">
-      <div class="card-head">
-        <h2>Steps</h2>
-        <div class="pill small">Today</div>
+    <section class="grid2">
+      <div class="card">
+        <div class="cardHead">
+          <h2>Steps</h2>
+          <span class="pill mini ghost">Today</span>
+        </div>
+        <div id="stepsBig" class="metricBig">—</div>
+        <div class="row3">
+          <div class="kv">
+            <div class="label">Distance</div>
+            <div id="distance" class="value">—</div>
+          </div>
+          <div class="kv">
+            <div class="label">Calories</div>
+            <div id="calories" class="value">—</div>
+          </div>
+          <div class="kv">
+            <div class="label">Goal</div>
+            <div id="stepsGoal" class="value">—</div>
+          </div>
+        </div>
       </div>
 
-      <div class="steps-grid">
-        <div class="steps-big" id="stepsCount">210</div>
-
-        <div class="mini-card">
-          <div class="label">Distance</div>
-          <div class="value" id="stepsDistance">—</div>
+      <div class="card">
+        <div class="cardHead">
+          <h2>Heart rate</h2>
+          <span class="pill mini ghost">Latest</span>
         </div>
+        <div id="hrBig" class="metricBig">—</div>
+        <div class="tinyLine" id="hrNote">—</div>
+      </div>
 
-        <div class="mini-card">
-          <div class="label">Calories</div>
-          <div class="value" id="stepsCalories">—</div>
+      <div class="card">
+        <div class="cardHead">
+          <h2>Sleep</h2>
+          <span class="pill mini ghost">Last night</span>
         </div>
+        <div id="sleepBig" class="metricBig">—</div>
+        <div class="tinyLine" id="sleepNote">—</div>
+      </div>
 
-        <div class="mini-card">
-          <div class="label">Active minutes</div>
-          <div class="value" id="stepsActiveMin">—</div>
+      <div class="card">
+        <div class="cardHead">
+          <h2>Next event</h2>
+          <span class="pill mini ghost">Calendar</span>
         </div>
+        <div id="eventBig" class="metricBig small">—</div>
+        <div class="tinyLine" id="eventNote">—</div>
       </div>
     </section>
 
     <section class="card">
-      <div class="card-head">
-        <h2>Heart rate</h2>
-        <div class="pill small">Latest</div>
-      </div>
-      <div class="row">
-        <div class="hr-big"><span id="hrBpm">—</span> <small>bpm</small></div>
-        <div class="muted" id="hrNote">Latest reading</div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <h2>Sleep</h2>
-        <div class="pill small">Last night</div>
-      </div>
-
-      <div class="sleep-grid">
-        <div class="sleep-big" id="sleepDuration">—</div>
-
-        <div class="mini-card">
-          <div class="label">Quality</div>
-          <div class="value" id="sleepQuality">—</div>
-        </div>
-
-        <div class="mini-card">
-          <div class="label">Notes</div>
-          <div class="value" id="sleepNotes">—</div>
-        </div>
-
-        <div class="mini-card span2">
-          <div class="label">Start → End</div>
-          <div class="value" id="sleepWindow">—</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <h2>Events</h2>
-        <div class="pill small">Today</div>
-      </div>
-      <div class="event" id="nextEvent">
-        <div class="event-title">No upcoming events</div>
-        <div class="event-time muted">—</div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
+      <div class="cardHead">
         <h2>News</h2>
-        <div class="pill small">Top</div>
+        <span class="pill mini ghost">Top</span>
       </div>
-      <div class="news" id="newsBox">No news items</div>
+      <ul id="newsList" class="newsList"></ul>
     </section>
 
-    <section class="card">
-      <div class="card-head">
-        <h2>Brief</h2>
-        <div class="pill small">Summary</div>
-      </div>
-      <div class="brief" id="briefText">—</div>
-      <div class="footer muted" id="updatedAt">Updated: —</div>
-    </section>
+    <footer class="foot tinyLine" id="updatedAt">—</footer>
   </main>
 
-  <script src="app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
