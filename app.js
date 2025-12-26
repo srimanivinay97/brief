@@ -36,6 +36,15 @@ function render(data) {
   // Health
   const h = data.health || {};
   el("hSteps").textContent = h.steps ?? "—";
+  
+  function formatSleep(minutes) {
+  if (!minutes || minutes <= 0) return "—";
+
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return `${h}h ${m}m`;
+}
+
   el("hSleep").textContent = h.sleep ?? "—";
   el("hHr").textContent = h.heartRate != null ? `${h.heartRate} bpm` : "—";
 }
