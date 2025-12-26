@@ -1,170 +1,229 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Brief</title>
-  <link rel="stylesheet" href="./style.css" />
-</head>
-<body>
-  <div class="wrap">
-    <header class="top">
-      <div class="top-left">
-        <div id="greeting" class="greeting">Hello</div>
-        <div id="dateLine" class="dateLine">—</div>
-      </div>
-      <div class="top-right">
-        <div id="timeNow" class="pill">—</div>
-        <div id="briefMode" class="pill ghost">—</div>
-      </div>
-    </header>
+:root{
+  --bg: #0b0d12;
+  --card: rgba(255,255,255,0.06);
+  --card2: rgba(255,255,255,0.08);
+  --stroke: rgba(255,255,255,0.08);
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.62);
+  --shadow: 0 18px 50px rgba(0,0,0,0.45);
+  --r: 22px;
+}
 
-    <main class="grid">
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background: radial-gradient(1100px 700px at 20% -10%, rgba(140,90,255,0.35), transparent 55%),
+              radial-gradient(900px 600px at 120% 0%, rgba(70,170,255,0.18), transparent 50%),
+              var(--bg);
+  color: var(--text);
+}
 
-      <!-- WEATHER (top) -->
-      <section class="card hero" id="cardWeather">
-        <div class="cardHead">
-          <div class="cardTitle">Weather</div>
-          <div class="pill" id="weatherLocation">Now</div>
-        </div>
+.wrap{
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 18px 16px 32px;
+}
 
-        <div class="heroRow">
-          <div class="bigNumber">
-            <span id="tempNow">—</span><span class="unit">°C</span>
-          </div>
-          <div class="heroMeta">
-            <div class="metaLine">
-              <span class="muted">Feels like</span>
-              <span id="tempFeels" class="strong">—°C</span>
-            </div>
-            <div class="metaLine">
-              <span class="muted">Condition</span>
-              <span id="condNow" class="strong">—</span>
-            </div>
-          </div>
-        </div>
+.top{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  padding: 10px 4px 16px;
+}
 
-        <div class="miniGrid">
-          <div class="mini">
-            <div class="miniLabel">Tonight</div>
-            <div class="miniValue" id="tonightSummary">—</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Rain chance</div>
-            <div class="miniValue"><span id="tonightRain">—</span>%</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Wind</div>
-            <div class="miniValue"><span id="tonightWind">—</span> mph</div>
-          </div>
-        </div>
-      </section>
+.greeting{
+  font-size: 34px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+}
 
-      <!-- STEPS -->
-      <section class="card" id="cardSteps">
-        <div class="cardHead">
-          <div class="cardTitle">Steps</div>
-          <div class="pill ghost">Today</div>
-        </div>
+.dateLine{
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
 
-        <div class="bigNumber">
-          <span id="stepsToday">—</span>
-        </div>
+.top-right{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
 
-        <div class="miniGrid">
-          <div class="mini">
-            <div class="miniLabel">Distance</div>
-            <div class="miniValue" id="stepsDistance">—</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Calories</div>
-            <div class="miniValue" id="stepsCalories">—</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Active minutes</div>
-            <div class="miniValue" id="stepsMinutes">—</div>
-          </div>
-        </div>
-      </section>
+.pill{
+  font-size: 13px;
+  color: rgba(255,255,255,0.88);
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+}
 
-      <!-- HEART RATE -->
-      <section class="card" id="cardHR">
-        <div class="cardHead">
-          <div class="cardTitle">Heart rate</div>
-          <div class="pill ghost">Latest</div>
-        </div>
+.pill.ghost{
+  background: rgba(255,255,255,0.06);
+  color: var(--muted);
+}
 
-        <div class="bigNumber">
-          <span id="hrValue">—</span><span class="unit"> bpm</span>
-        </div>
+.grid{
+  display:grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 14px;
+}
 
-        <div class="subtext" id="hrNote">—</div>
-      </section>
+.card{
+  grid-column: span 6;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.05));
+  border: 1px solid var(--stroke);
+  border-radius: var(--r);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+}
 
-      <!-- SLEEP -->
-      <section class="card" id="cardSleep">
-        <div class="cardHead">
-          <div class="cardTitle">Sleep</div>
-          <div class="pill ghost" id="sleepTag">Last night</div>
-        </div>
+.card.hero{
+  grid-column: span 12;
+  padding: 18px;
+}
 
-        <div class="bigNumber">
-          <span id="sleepDuration">—</span>
-        </div>
+.cardHead{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom: 10px;
+}
 
-        <div class="miniGrid">
-          <div class="mini">
-            <div class="miniLabel">Quality</div>
-            <div class="miniValue" id="sleepQuality">—</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Notes</div>
-            <div class="miniValue" id="sleepNotes">—</div>
-          </div>
-          <div class="mini">
-            <div class="miniLabel">Start → End</div>
-            <div class="miniValue" id="sleepWindow">—</div>
-          </div>
-        </div>
-      </section>
+.cardTitle{
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: rgba(255,255,255,0.88);
+}
 
-      <!-- EVENTS -->
-      <section class="card" id="cardEvents">
-        <div class="cardHead">
-          <div class="cardTitle">Events</div>
-          <div class="pill ghost" id="eventsPill">Today</div>
-        </div>
+.heroRow{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
 
-        <div class="subtext" id="firstMeeting">—</div>
-        <div class="list" id="eventsList"></div>
-      </section>
+.bigNumber{
+  font-size: 52px;
+  font-weight: 820;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
 
-      <!-- NEWS -->
-      <section class="card" id="cardNews">
-        <div class="cardHead">
-          <div class="cardTitle">News</div>
-          <div class="pill ghost">Top</div>
-        </div>
+.unit{
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--muted);
+  margin-left: 6px;
+}
 
-        <div class="list" id="newsList"></div>
-      </section>
+.heroMeta{
+  min-width: 180px;
+  display:flex;
+  flex-direction:column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(255,255,255,0.06);
+}
 
-      <!-- BRIEF TEXT (AI vibe, but only summarising provided info) -->
-      <section class="card" id="cardBrief">
-        <div class="cardHead">
-          <div class="cardTitle">Brief</div>
-          <div class="pill ghost">Summary</div>
-        </div>
-        <div class="briefText" id="briefText">—</div>
-      </section>
+.metaLine{
+  display:flex;
+  justify-content:space-between;
+  gap: 14px;
+  font-size: 13px;
+}
 
-    </main>
+.strong{ color: rgba(255,255,255,0.88); font-weight: 650; }
+.muted{ color: var(--muted); }
 
-    <footer class="foot muted">
-      <span id="updatedAt">—</span>
-    </footer>
-  </div>
+.miniGrid{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
 
-  <script src="./app.js"></script>
-</body>
-</html>
+.mini{
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.16);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.miniLabel{
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.miniValue{
+  font-size: 14px;
+  color: rgba(255,255,255,0.90);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.subtext{
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.list{
+  margin-top: 12px;
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+}
+
+.item{
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.16);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.itemTitle{
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.itemMeta{
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.briefText{
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.88);
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.16);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.foot{
+  margin-top: 14px;
+  padding: 6px 2px 0;
+  font-size: 12px;
+  text-align: right;
+}
+
+/* Mobile */
+@media (max-width: 720px){
+  .greeting{ font-size: 30px; }
+  .bigNumber{ font-size: 48px; }
+  .card{ grid-column: span 12; }
+  .miniGrid{ grid-template-columns: repeat(2, 1fr); }
+}
