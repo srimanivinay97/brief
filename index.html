@@ -79,17 +79,20 @@
 
   <script>
     function safeParsePayload() {
-      const params = new URLSearchParams(location.search);
-      const b64 = params.get("data");
-      if (!b64) return null;
-      try {
-        const json = decodeURIComponent(escape(atob(b64)));
-        return JSON.parse(json);
-      } catch (e) {
-        console.log("Bad payload", e);
-        return null;
-      }
-    }
+  const params = new URLSearchParams(location.search);
+  const b64 = params.get("data");
+  if (!b64) return null;
+  try {
+    // b64 is already URL-encoded by Shortcut, so decode it first
+    const decodedB64 = decodeURIComponent(b64);
+    const json = atob(decodedB64);
+    return JSON.parse(json);
+  } catch (e) {
+    console.log("Bad payload", e);
+    return null;
+  }
+}
+
 
     function setText(id, text){ const el = document.getElementById(id); if(el) el.textContent = text; }
     function fmtDate(d){
