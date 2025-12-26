@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brief</title>
+  <style>
+    :root { --pad: 16px; --r: 18px; }
+    body{
+      margin:0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      background: #0b0c10; color:#fff;
+    }
+    .wrap{ padding: var(--pad); max-width: 720px; margin: 0 auto; }
+    .top{ display:flex; justify-content:space-between; align-items:flex-end; gap:12px; margin: 8px 0 16px; }
+    .title{ font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+    .sub{ opacity:.75; font-size: 14px; }
+    .grid{ display:grid; grid-template-columns: 1fr; gap: 12px; }
+    .card{
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: var(--r);
+      padding: 14px 14px;
+      backdrop-filter: blur(10px);
+    }
+    .card h2{ margin:0 0 10px; font-size: 16px; opacity:.9; }
+    .row{ display:flex; justify-content:space-between; gap:10px; align-items:center; }
+    .big{ font-size: 34px; font-weight: 800; letter-spacing: -0.03em; }
+    .pill{
+      font-size: 13px; opacity:.9;
+      padding: 6px 10px; border-radius: 999px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.12);
+      white-space: nowrap;
+    }
+    .list{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; }
+    .item{
+      padding: 10px 10px; border-radius: 14px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .item .t{ display:flex; justify-content:space-between; gap:10px; }
+    .item .name{ font-weight: 650; }
+    .item .time{ opacity:.8; font-variant-numeric: tabular-nums; }
+    .muted{ opacity:.7; }
+    .footer{ margin-top: 14px; opacity:.6; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">Brief</div>
+        <div class="sub" id="dateLine"></div>
+      </div>
+      <div class="pill" id="updatedLine"></div>
+    </div>
+
+    <div class="grid">
+      <div class="card" id="weatherCard">
+        <h2>Weather</h2>
+        <div class="row">
+          <div>
+            <div class="big" id="temp">--°</div>
+            <div class="muted" id="cond">—</div>
+          </div>
+          <div class="pill" id="loc">—</div>
+        </div>
+      </div>
+
+      <div class="card" id="eventsCard">
+        <h2>Today</h2>
+        <ul class="list" id="events"></ul>
+        <div class="muted" id="noEvents" style="display:none;">No events scheduled.</div>
+      </div>
+    </div>
+
+    <div class="footer">Tip: Add this page to your Home Screen for an app-like Brief.</div>
+  </div>
+
+  <script>
+    function safeParsePayload() {
+      const params = new URLSearchParams(location.search);
+      const b64 = params.get("data");
+      if (!b64) return null;
+      try {
+        const json = decodeURIComponent(escape(atob(b64)));
+        return JSON.parse(json);
+      } catch (e) {
+        console.log("Bad payload", e);
+        return null;
+      }
+    }
+
+    function setText(id, text){ const el = document.getElementById(id); if(el) el.textContent = text; }
+    function fmtDate(d){
+      try {
+        return new Intl.DateTimeFormat(undefined, { weekday:"long", day:"2-digit", month:"long" }).format(d);
+      } catch { return d.toDateString(); }
+    }
+
+    const payload = safeParsePayload() || {
+      location: "London",
+      weather: { tempC: null, condition: "Open via Shortcut to load data" },
+      events: []
+    };
+
+    const now = new Date();
+    setText("dateLine", fmtDate(now));
+    setText("updatedLine", "Updated " + now.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
+
+    // Weather
+    setText("loc", payload.location || "—");
+    if (payload.weather?.tempC !== null && payload.weather?.tempC !== undefined) {
+      setText("temp", Math.round(payload.weather.tempC) + "°");
+    } else {
+      setText("temp", "--°");
+    }
+    setText("cond", payload.weather?.condition || "—");
+
+    // Events
+    const list = document.getElementById("events");
+    const no = document.getElementById("noEvents");
+    const events = Array.isArray(payload.events) ? payload.events : [];
+
+    if (!events.length) {
+      no.style.display = "block";
+    } else {
+      no.style.display = "none";
+      for (const ev of events.slice(0, 8)) {
+        const li = document.createElement("li");
+        li.className = "item";
+        const time = ev.time || "";
+        const name = ev.title || "Untitled";
+        li.innerHTML = `
+          <div class="t">
+            <div class="name">${escapeHtml(name)}</div>
+            <div class="time">${escapeHtml(time)}</div>
+          </div>
+          ${ev.location ? `<div class="muted">${escapeHtml(ev.location)}</div>` : ``}
+        `;
+        list.appendChild(li);
+      }
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+  </script>
+</body>
+</html>
