@@ -1,58 +1,61 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-
-  
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Brief</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="top">
-    <div>
-      <h1>Brief</h1>
-      <p id="sub" class="muted">Waiting for data…</p>
-    </div>
-    <button id="btnDebug" class="btn">Show Debug</button>
-  </header>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <div class="title" id="title">Good Morning Brief</div>
+        <div class="meta" id="meta"></div>
+      </div>
+    </header>
 
-  <section class="card">
-    <div class="cardHead">
-      <div class="pill">STATUS</div>
-      <div id="statusPill" class="pill pillOk">Waiting</div>
-    </div>
-    <div class="muted">Open with <b>?data=BASE64</b></div>
-    <div class="muted">Tip: use URL-encoded Base64 for best reliability.</div>
-  </section>
+    <section class="grid">
+      <div class="card" id="sleepCard">
+        <div class="cardTitle">Sleep</div>
+        <div class="big" id="sleepDuration">—</div>
+      </div>
 
-  <section class="grid">
-    <section class="card">
-      <h2>Weather</h2>
-      <div class="weather">
-        <div class="weather-temp" id="temp">—</div>
-        <div class="weather-meta">
-          <div class="pill" id="feelsLike">Feels like —</div>
-          <div class="pill" id="condition">Condition —</div>
+      <div class="card" id="stepsCard">
+        <div class="cardTitle">Steps</div>
+        <div class="big" id="stepsToday">—</div>
+        <div class="sub" id="distance">—</div>
+      </div>
+
+      <div class="card full" id="weatherCard">
+        <div class="row">
+          <div>
+            <div class="cardTitle">Weather</div>
+            <div class="big" id="weatherCondition">—</div>
+          </div>
+          <div class="right">
+            <div class="temp" id="tempC">—</div>
+            <div class="sub" id="feelsLike">—</div>
+          </div>
         </div>
+
+        <div class="chips" id="weatherChips"></div>
+      </div>
+
+      <div class="card full" id="calendarCard">
+        <div class="cardTitle">Today</div>
+        <div class="list" id="eventsList"></div>
+      </div>
+
+      <div class="card full" id="magCard">
+        <div class="cardTitle">Magazine</div>
+        <div class="list" id="magList"></div>
       </div>
     </section>
 
-    <section class="card">
-      <h2>Health</h2>
-      <div class="kvs">
-        <div class="kv"><span class="k">Steps</span><span class="v" id="hSteps">—</span></div>
-        <div class="kv"><span class="k">Sleep</span><span class="v" id="sleepValue">—</span></div>
-        <div class="kv"><span class="k">Heart Rate</span><span class="v" id="hHr">—</span></div>
-      </div>
-    </section>
-  </section>
+    <footer class="foot" id="foot"></footer>
+  </div>
 
-  <section id="debug" class="card hidden">
-    <h2>Debug</h2>
-    <pre id="debugText">—</pre>
-  </section>
-
-  <script src="./app.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
