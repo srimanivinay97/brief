@@ -2,60 +2,84 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B0D12" />
   <title>Brief</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="./style.css" />
+  <script defer src="./app.js"></script>
 </head>
+
 <body>
-  <div class="wrap">
+  <div class="bg"></div>
+
+  <main class="wrap">
     <header class="top">
       <div>
-        <div class="title" id="title">Good Morning Brief</div>
-        <div class="meta" id="meta"></div>
+        <h1 id="title">Good morning</h1>
+        <p id="subtitle" class="muted">Loading…</p>
       </div>
+      <div class="pill" id="pillTime">—</div>
     </header>
 
     <section class="grid">
-      <div class="card" id="sleepCard">
-        <div class="cardTitle">Sleep</div>
-        <div class="big" id="sleepDuration">—</div>
-      </div>
-
-      <div class="card" id="stepsCard">
-        <div class="cardTitle">Steps</div>
-        <div class="big" id="stepsToday">—</div>
-        <div class="sub" id="distance">—</div>
-      </div>
-
-      <div class="card full" id="weatherCard">
-        <div class="row">
-          <div>
-            <div class="cardTitle">Weather</div>
-            <div class="big" id="weatherCondition">—</div>
-          </div>
-          <div class="right">
-            <div class="temp" id="tempC">—</div>
-            <div class="sub" id="feelsLike">—</div>
-          </div>
+      <article class="card" id="cardSleep">
+        <div class="cardHead">
+          <h2>Sleep</h2>
+          <span class="badge" id="sleepBadge">—</span>
         </div>
+        <div class="big" id="sleepMain">—</div>
+        <div class="row">
+          <div class="kv"><span class="k">Quality</span><span class="v" id="sleepQuality">—</span></div>
+          <div class="kv"><span class="k">Notes</span><span class="v" id="sleepNote">—</span></div>
+        </div>
+      </article>
 
-        <div class="chips" id="weatherChips"></div>
-      </div>
+      <article class="card" id="cardSteps">
+        <div class="cardHead">
+          <h2>Steps</h2>
+          <span class="badge" id="stepsBadge">Today</span>
+        </div>
+        <div class="big" id="stepsMain">—</div>
+        <div class="row">
+          <div class="kv"><span class="k">Distance</span><span class="v" id="stepsDistance">—</span></div>
+          <div class="kv"><span class="k">Calories</span><span class="v" id="stepsCalories">—</span></div>
+        </div>
+      </article>
 
-      <div class="card full" id="calendarCard">
-        <div class="cardTitle">Today</div>
-        <div class="list" id="eventsList"></div>
-      </div>
+      <article class="card" id="cardWeather">
+        <div class="cardHead">
+          <h2>Weather</h2>
+          <span class="badge" id="weatherBadge">Now</span>
+        </div>
+        <div class="big" id="weatherMain">—</div>
+        <div class="row">
+          <div class="kv"><span class="k">Feels</span><span class="v" id="weatherFeels">—</span></div>
+          <div class="kv"><span class="k">Tonight</span><span class="v" id="weatherTonight">—</span></div>
+        </div>
+      </article>
 
-      <div class="card full" id="magCard">
-        <div class="cardTitle">Magazine</div>
-        <div class="list" id="magList"></div>
-      </div>
+      <article class="card" id="cardToday">
+        <div class="cardHead">
+          <h2>Today</h2>
+          <span class="badge" id="todayBadge">Calendar</span>
+        </div>
+        <div id="events" class="list">
+          <div class="item muted">No events</div>
+        </div>
+      </article>
+
+      <article class="card full" id="cardMagazine">
+        <div class="cardHead">
+          <h2>Magazine</h2>
+          <span class="badge" id="magBadge">Downloads</span>
+        </div>
+        <div id="magazines" class="list">
+          <div class="item muted">No downloads</div>
+        </div>
+      </article>
     </section>
 
-    <footer class="foot" id="foot"></footer>
-  </div>
-
-  <script src="script.js"></script>
+    <footer class="foot muted" id="updatedAt">—</footer>
+  </main>
 </body>
 </html>
