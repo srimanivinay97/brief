@@ -36,15 +36,6 @@ function render(data) {
   // Health
   const h = data.health || {};
   el("hSteps").textContent = h.steps ?? "—";
-  
-  function formatSleep(minutes) {
-  if (!minutes || minutes <= 0) return "—";
-
-  const h = Math.floor(minutes / 60);
-  const m = Math.round(minutes % 60);
-  return `${h}h ${m}m`;
-}
-
   el("hSleep").textContent = h.sleep ?? "—";
   el("hHr").textContent = h.heartRate != null ? `${h.heartRate} bpm` : "—";
 }
@@ -77,3 +68,24 @@ function main() {
 }
 
 main();
+function toNumber(v) {
+  if (v === null || v === undefined) return NaN;
+  // Handles "575.19", "575", 575, and even "575 mins"
+  const cleaned = String(v).replace(/[^0-9.+-]/g, "");
+  return Number(cleaned);
+}
+
+function formatSleepMinutes(raw) {
+  const minutes = toNumber(raw);
+  if (!Number.isFinite(minutes) || minutes <= 0) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return `${h}h ${m}m`;
+}
+
+// ✅ Use this
+function setSleep(rawSleepMinutes) {
+  const el = document.getElementById("sleepValue");
+  el.textContent = formatSleepMinutes(rawSleepMinutes);
+}
+
