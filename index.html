@@ -1,182 +1,79 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Brief</title>
   <style>
-    :root { --pad: 16px; --r: 18px; }
-    body{
-      margin:0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-      background: #0b0c10; color:#fff;
-    }
-    .wrap{ padding: var(--pad); max-width: 720px; margin: 0 auto; }
-    .top{ display:flex; justify-content:space-between; align-items:flex-end; gap:12px; margin: 8px 0 16px; }
-    .title{ font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
-    .sub{ opacity:.75; font-size: 14px; }
-    .grid{ display:grid; grid-template-columns: 1fr; gap: 12px; }
-    .card{
-      background: rgba(255,255,255,.07);
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: var(--r);
-      padding: 14px 14px;
-      backdrop-filter: blur(10px);
-    }
-    .card h2{ margin:0 0 10px; font-size: 16px; opacity:.9; }
-    .row{ display:flex; justify-content:space-between; gap:10px; align-items:center; }
-    .big{ font-size: 34px; font-weight: 800; letter-spacing: -0.03em; }
-    .pill{
-      font-size: 13px; opacity:.9;
-      padding: 6px 10px; border-radius: 999px;
-      background: rgba(255,255,255,.10);
-      border: 1px solid rgba(255,255,255,.12);
-      white-space: nowrap;
-    }
-    .list{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; }
-    .item{
-      padding: 10px 10px; border-radius: 14px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.08);
-    }
-    .item .t{ display:flex; justify-content:space-between; gap:10px; }
-    .item .name{ font-weight: 650; }
-    .item .time{ opacity:.8; font-variant-numeric: tabular-nums; }
-    .muted{ opacity:.7; }
-    .footer{ margin-top: 14px; opacity:.6; font-size: 12px; }
+    body { font-family: -apple-system, system-ui, sans-serif; padding: 16px; }
+    pre { white-space: pre-wrap; word-break: break-word; background:#111; color:#0f0; padding:12px; border-radius:10px; }
+    .err { color: #ff3b30; font-weight: 600; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="top">
-      <div>
-        <div class="title">Brief</div>
-        <div class="sub" id="dateLine"></div>
-      </div>
-      <div class="pill" id="updatedLine"></div>
-    </div>
+  <h2>Brief Debug</h2>
 
-    <div class="grid">
-      <div class="card" id="weatherCard">
-        <h2>Weather</h2>
-        <div class="row">
-          <div>
-            <div class="big" id="temp">--°</div>
-            <div class="muted" id="cond">—</div>
-          </div>
-          <div class="pill" id="loc">—</div>
-        </div>
-      </div>
+  <div id="status"></div>
 
-      <div class="card" id="eventsCard">
-        <h2>Today</h2>
-        <ul class="list" id="events"></ul>
-        <div class="muted" id="noEvents" style="display:none;">No events scheduled.</div>
-      </div>
-    </div>
+  <h3>Raw data param</h3>
+  <pre id="raw"></pre>
 
-    <div class="footer">Tip: Add this page to your Home Screen for an app-like Brief.</div>
-  </div>
+  <h3>Decoded text</h3>
+  <pre id="decoded"></pre>
+
+  <h3>Parsed JSON</h3>
+  <pre id="json"></pre>
 
   <script>
-    function safeParsePayload() {
-  const params = new URLSearchParams(location.search);
-  const b64 = params.get("data");
-  if (!b64) return null;
-  try {
-    // b64 is already URL-encoded by Shortcut, so decode it first
-    const decodedB64 = decodeURIComponent(b64);
-    const json = atob(decodedB64);
-    return JSON.parse(json);
-  } catch (e) {
-    console.log("Bad payload", e);
-    return null;
-  }
-}
+    const $ = (id) => document.getElementById(id);
 
-
-    function setText(id, text){ const el = document.getElementById(id); if(el) el.textContent = text; }
-    function fmtDate(d){
-      try {
-        return new Intl.DateTimeFormat(undefined, { weekday:"long", day:"2-digit", month:"long" }).format(d);
-      } catch { return d.toDateString(); }
+    function getParam(name) {
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name);
     }
 
-    const payload = safeParsePayload() || {
-      location: "London",
-      weather: { tempC: null, condition: "Open via Shortcut to load data" },
-      events: []
-    };
+    // Handles: URL encoding, URL-safe base64, missing padding, Unicode
+    function decodePayload(param) {
+      if (!param) throw new Error("No ?data= found in URL");
 
-    const now = new Date();
-    setText("dateLine", fmtDate(now));
-    setText("updatedLine", "Updated " + now.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
+      // 1) URL decode
+      let b64 = decodeURIComponent(param);
 
-    // Weather
-    setText("loc", payload.location || "—");
-    if (payload.weather?.tempC !== null && payload.weather?.tempC !== undefined) {
-      setText("temp", Math.round(payload.weather.tempC) + "°");
-    } else {
-      setText("temp", "--°");
-    }
-    setText("cond", payload.weather?.condition || "—");
+      // 2) Convert URL-safe base64 -> normal base64
+      b64 = b64.replace(/-/g, "+").replace(/_/g, "/");
 
-    // Events
-    const list = document.getElementById("events");
-    const no = document.getElementById("noEvents");
-    const events = Array.isArray(payload.events) ? payload.events : [];
+      // 3) Fix missing padding
+      const pad = b64.length % 4;
+      if (pad) b64 += "=".repeat(4 - pad);
 
-    if (!events.length) {
-      no.style.display = "block";
-    } else {
-      no.style.display = "none";
-      for (const ev of events.slice(0, 8)) {
-        const li = document.createElement("li");
-        li.className = "item";
-        const time = ev.time || "";
-        const name = ev.title || "Untitled";
-        li.innerHTML = `
-          <div class="t">
-            <div class="name">${escapeHtml(name)}</div>
-            <div class="time">${escapeHtml(time)}</div>
-          </div>
-          ${ev.location ? `<div class="muted">${escapeHtml(ev.location)}</div>` : ``}
-        `;
-        list.appendChild(li);
-      }
+      // 4) Decode base64 to bytes
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+      // 5) Bytes -> UTF-8 string (fixes Unicode issues)
+      const text = new TextDecoder("utf-8").decode(bytes);
+
+      // 6) Parse JSON
+      const obj = JSON.parse(text);
+
+      return { text, obj, b64Len: b64.length };
     }
 
-    function escapeHtml(s){
-      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    }
-     function getQueryParam(name) {
-    const url = new URL(window.location.href);
-    return url.searchParams.get(name);
-  }
+    const dataParam = getParam("data");
+    $("raw").textContent = dataParam ?? "";
 
-  function decodeBase64ToJson(b64) {
-    // If Shortcuts URL-encoded it, we must decode first
-    b64 = decodeURIComponent(b64);
-
-    // Standard base64 decode
-    const jsonText = atob(b64);
-
-    return JSON.parse(jsonText);
-  }
-
-  const dataParam = getQueryParam("data");
-  if (dataParam) {
     try {
-      const payload = decodeBase64ToJson(dataParam);
-      console.log("Payload:", payload);
-
-      // Example:
-      // document.getElementById("weatherTemp").textContent = payload.weather.temp;
-
+      const out = decodePayload(dataParam);
+      $("status").textContent = `✅ OK (base64 length: ${out.b64Len})`;
+      $("decoded").textContent = out.text;
+      $("json").textContent = JSON.stringify(out.obj, null, 2);
     } catch (e) {
-      console.error("Failed to decode data:", e);
-      // show an error on UI if you want
+      $("status").innerHTML = `<span class="err">❌ Decode failed:</span> ${e.message}`;
+      $("decoded").textContent = "";
+      $("json").textContent = "";
+      console.error(e);
     }
-  }
   </script>
 </body>
 </html>
