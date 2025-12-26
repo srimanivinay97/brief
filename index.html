@@ -1,159 +1,419 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Brief</title>
+
   <style>
-    body{margin:0;font-family:-apple-system,system-ui;background:#0b0b0f;color:#fff}
-    .wrap{padding:18px 16px 40px;max-width:560px;margin:0 auto}
-    h1{margin:10px 0 18px;font-size:32px;font-weight:800;letter-spacing:-.6px}
-    .card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);
-      border-radius:18px;padding:14px 14px;margin:12px 0;backdrop-filter: blur(10px)}
-    .muted{opacity:.7;font-size:13px}
-    .row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-    .big{font-size:38px;font-weight:800;line-height:1}
-    .pill{display:inline-block;padding:6px 10px;border-radius:999px;
-      background:rgba(255,255,255,.10);font-size:13px}
-    ul{list-style:none;padding:0;margin:10px 0 0}
-    li{padding:10px 0;border-top:1px solid rgba(255,255,255,.10)}
-    li:first-child{border-top:0}
-    a{color:#9ad}
-    .error{background:rgba(255,80,80,.12);border:1px solid rgba(255,80,80,.25)}
-    .ok{color:#9f9}
+    :root{
+      --bg1:#05060a;
+      --bg2:#0b0f1f;
+      --card: rgba(255,255,255,.08);
+      --stroke: rgba(255,255,255,.14);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.62);
+      --muted2: rgba(255,255,255,.45);
+      --shadow: 0 18px 60px rgba(0,0,0,.55);
+      --radius: 22px;
+      --pad: 18px;
+      --gap: 14px;
+      --chip: rgba(255,255,255,.12);
+      --good: rgba(70,255,170,.18);
+      --warn: rgba(255,210,90,.18);
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      min-height:100vh;
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background:
+        radial-gradient(900px 700px at 20% 8%, rgba(120,110,255,.18), transparent 55%),
+        radial-gradient(900px 700px at 85% 22%, rgba(0,190,255,.14), transparent 55%),
+        radial-gradient(900px 700px at 70% 90%, rgba(255,120,200,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      padding: 22px 16px 40px;
+    }
+
+    .wrap{ max-width: 560px; margin: 0 auto; }
+
+    header{
+      display:flex; align-items:flex-end; justify-content:space-between;
+      margin: 6px 2px 14px;
+    }
+    .title{
+      font-weight: 780;
+      letter-spacing: -0.02em;
+      font-size: 40px;
+      line-height: 1;
+    }
+    .sub{
+      font-size: 12px;
+      color: var(--muted2);
+      margin-top: 6px;
+    }
+
+    .stack{ display:grid; gap: var(--gap); }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: var(--pad);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .card::before{
+      content:"";
+      position:absolute; inset:-2px;
+      background: radial-gradient(600px 200px at 12% 0%, rgba(255,255,255,.10), transparent 55%);
+      pointer-events:none;
+    }
+
+    .row{ display:flex; align-items:center; justify-content:space-between; gap: 10px; }
+    .label{ font-size: 12px; color: var(--muted2); letter-spacing:.08em; text-transform: uppercase; }
+    .value{ font-size: 14px; color: var(--muted); }
+
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--chip);
+      border: 1px solid rgba(255,255,255,.10);
+      color: var(--text);
+      font-size: 13px;
+      width: fit-content;
+    }
+
+    .status{
+      display:flex; align-items:center; justify-content:space-between;
+      gap: 10px;
+    }
+    .badge{
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: var(--good);
+      color: rgba(190,255,225,.95);
+    }
+
+    .weatherTop{ display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; }
+    .temp{
+      font-size: 72px;
+      font-weight: 820;
+      letter-spacing: -0.05em;
+      line-height: .9;
+      margin: 8px 0 6px;
+    }
+    .meta{
+      display:flex; flex-direction:column; gap:6px;
+      align-items:flex-end;
+      text-align:right;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .mini{
+      padding: 12px 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+    }
+    .mini .k{ font-size:12px; color: var(--muted2); }
+    .mini .v{ margin-top:6px; font-size:15px; color: var(--text); font-weight: 650; }
+
+    .sectionTitle{
+      display:flex; align-items:center; gap:10px;
+      margin-bottom: 10px;
+    }
+    .icon{
+      width: 34px; height: 34px;
+      border-radius: 12px;
+      display:grid; place-items:center;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.12);
+      font-size: 18px;
+    }
+    .sectionTitle h3{
+      margin:0;
+      font-size: 16px;
+      letter-spacing: -.01em;
+    }
+
+    ul.clean{
+      list-style:none;
+      padding:0; margin: 10px 0 0;
+      display:grid; gap: 10px;
+    }
+    .item{
+      padding: 12px 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      display:flex; align-items:flex-start; justify-content:space-between; gap: 12px;
+    }
+    .item .left{ display:flex; flex-direction:column; gap:4px; }
+    .item .t{ font-weight: 700; }
+    .item .d{ font-size: 13px; color: var(--muted); }
+    .item .r{ font-size: 13px; color: var(--muted2); white-space:nowrap; }
+
+    .mutedBlock{
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .toggleRow{
+      display:flex; align-items:center; justify-content:space-between;
+      margin-top: 10px;
+      gap: 12px;
+    }
+    .btn{
+      appearance:none;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 13px;
+    }
+    pre{
+      margin: 10px 0 0;
+      padding: 14px;
+      background: rgba(0,0,0,.28);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      overflow:auto;
+      font-size: 12px;
+      color: rgba(255,255,255,.80);
+      display:none;
+    }
+
+    /* small phones */
+    @media (max-width: 380px){
+      .temp{ font-size: 62px; }
+      .title{ font-size: 36px; }
+      .grid2{ grid-template-columns: 1fr; }
+      .meta{ align-items:flex-start; text-align:left; }
+      .weatherTop{ align-items:flex-start; }
+    }
   </style>
 </head>
+
 <body>
   <div class="wrap">
-    <h1>Brief</h1>
+    <header>
+      <div>
+        <div class="title">Brief</div>
+        <div class="sub" id="updatedText">Waiting for data…</div>
+      </div>
+      <div class="chip" id="locationChip">📍 Location</div>
+    </header>
 
-    <div id="status" class="card">
-      <div class="row">
-        <div>
-          <div class="muted">Status</div>
-          <div id="statusText">Waiting for data…</div>
+    <div class="stack">
+
+      <!-- Status -->
+      <div class="card">
+        <div class="status">
+          <div>
+            <div class="label">Status</div>
+            <div class="value" id="statusText">Open with <b>?data=BASE64</b></div>
+          </div>
+          <div class="badge" id="statusBadge">Waiting</div>
         </div>
-        <div class="pill" id="badge">—</div>
-      </div>
-      <div class="muted" style="margin-top:8px">
-        Tip: open with <span class="pill">?data=BASE64</span>
-      </div>
-    </div>
 
-    <div id="weatherCard" class="card" style="display:none"></div>
-    <div id="eventsCard" class="card" style="display:none"></div>
-    <div id="rawCard" class="card" style="display:none"></div>
+        <div class="toggleRow">
+          <div class="mutedBlock">Tip: use URL-encoded Base64 for best reliability.</div>
+          <button class="btn" id="toggleDebug">Show Debug</button>
+        </div>
+        <pre id="debugPre"></pre>
+      </div>
+
+      <!-- Weather -->
+      <div class="card">
+        <div class="sectionTitle">
+          <div class="icon">⛅️</div>
+          <h3>Weather</h3>
+        </div>
+
+        <div class="weatherTop">
+          <div>
+            <div class="label" id="weatherLabel">—</div>
+            <div class="temp" id="tempText">--°</div>
+            <div class="chip" id="conditionChip">—</div>
+          </div>
+
+          <div class="meta">
+            <div class="chip" id="feelsChip">🌡️ Feels like —</div>
+            <div class="chip" id="windChip">💨 Wind —</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="mini">
+            <div class="k">Humidity</div>
+            <div class="v" id="humidityText">—</div>
+          </div>
+          <div class="mini">
+            <div class="k">Rain chance</div>
+            <div class="v" id="rainText">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Events -->
+      <div class="card">
+        <div class="sectionTitle">
+          <div class="icon">📅</div>
+          <h3>Today</h3>
+        </div>
+
+        <div class="mutedBlock" id="eventsEmpty">No events added yet.</div>
+        <ul class="clean" id="eventsList"></ul>
+      </div>
+
+      <!-- Health -->
+      <div class="card">
+        <div class="sectionTitle">
+          <div class="icon">❤️</div>
+          <h3>Health</h3>
+        </div>
+
+        <div class="mutedBlock" id="healthEmpty">No health summary provided.</div>
+        <ul class="clean" id="healthList"></ul>
+      </div>
+
+    </div>
   </div>
 
 <script>
-  function b64ToUtf8(b64){
-    // handle URL-safe base64 too
-    b64 = b64.replace(/-/g,'+').replace(/_/g,'/');
-    // pad
-    while (b64.length % 4) b64 += '=';
-    const bin = atob(b64);
-    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
-    return new TextDecoder('utf-8').decode(bytes);
+  function safeParseData() {
+    const params = new URLSearchParams(window.location.search);
+    const encoded = params.get("data");
+    if (!encoded) return null;
+
+    // encoded may already be URL-encoded; decode safely
+    const decodedURIComponent = decodeURIComponent(encoded);
+
+    // Base64 decode
+    const jsonText = atob(decodedURIComponent);
+
+    // JSON parse
+    return JSON.parse(jsonText);
   }
 
-  function deepTrimKeys(obj){
-    if (Array.isArray(obj)) return obj.map(deepTrimKeys);
-    if (obj && typeof obj === 'object'){
-      const out = {};
-      for (const [k,v] of Object.entries(obj)){
-        out[k.trim()] = deepTrimKeys(v);
-      }
-      return out;
-    }
-    return obj;
-  }
+  function setText(id, text){ const el = document.getElementById(id); if (el) el.textContent = text; }
+  function setHTML(id, html){ const el = document.getElementById(id); if (el) el.innerHTML = html; }
 
-  function qs(name){
-    return new URLSearchParams(location.search).get(name);
-  }
+  const debugPre = document.getElementById("debugPre");
+  const toggleDebug = document.getElementById("toggleDebug");
+  let debugVisible = false;
 
-  function setStatus(ok, text){
-    const status = document.getElementById('status');
-    const badge = document.getElementById('badge');
-    const st = document.getElementById('statusText');
-    st.textContent = text;
-    if(ok){
-      badge.textContent = "OK";
-      badge.className = "pill ok";
-      status.classList.remove('error');
-    }else{
-      badge.textContent = "ERR";
-      badge.className = "pill";
-      status.classList.add('error');
-    }
-  }
+  toggleDebug.addEventListener("click", () => {
+    debugVisible = !debugVisible;
+    debugPre.style.display = debugVisible ? "block" : "none";
+    toggleDebug.textContent = debugVisible ? "Hide Debug" : "Show Debug";
+  });
 
-  function render(data, decodedText){
-    // Weather
-    const w = data.weather;
-    if (w){
-      const loc = data.location || "—";
-      const temp = w.tempC ?? "—";
-      const cond = w.condition ?? "—";
-      const wc = document.getElementById('weatherCard');
-      wc.style.display = "block";
-      wc.innerHTML = `
-        <div class="row">
-          <div>
-            <div class="muted">Weather • ${loc}</div>
-            <div class="big">${temp}</div>
-            <div class="pill" style="margin-top:10px">${cond}</div>
-          </div>
-        </div>`;
-    }
-
-    // Events
-    const ev = data.events;
-    if (Array.isArray(ev) && ev.length){
-      const ec = document.getElementById('eventsCard');
-      ec.style.display = "block";
-      ec.innerHTML = `
-        <div class="row">
-          <div>
-            <div class="muted">Today</div>
-            <div style="font-size:20px;font-weight:700;margin-top:4px">Events</div>
-          </div>
-          <div class="pill">${ev.length}</div>
-        </div>
-        <ul>
-          ${ev.map(e => `<li><div class="row">
-              <div style="font-weight:650">${e.title ?? "Untitled"}</div>
-              <div class="muted">${e.time ?? ""}</div>
-          </div></li>`).join("")}
-        </ul>`;
-    }
-
-    // Raw (optional)
-    const rc = document.getElementById('rawCard');
-    rc.style.display = "block";
-    rc.innerHTML = `
-      <div class="muted">Decoded JSON</div>
-      <pre style="white-space:pre-wrap;word-break:break-word;margin:10px 0 0;opacity:.9">${decodedText}</pre>
-    `;
-  }
-
-  (function init(){
-    const b64 = qs('data');
-    if(!b64){
-      setStatus(false, "No data param found.");
+  try{
+    const data = safeParseData();
+    if (!data){
+      setText("statusText", "Open with ?data=BASE64");
+      setText("statusBadge", "Waiting");
       return;
     }
 
-    try{
-      const decoded = b64ToUtf8(b64);
-      let parsed = JSON.parse(decoded);
-      parsed = deepTrimKeys(parsed); // ✅ fixes your “weather ” bug
-      setStatus(true, "Data received and parsed.");
-      render(parsed, JSON.stringify(parsed, null, 2));
-    }catch(e){
-      setStatus(false, "Failed to decode/parse: " + e.message);
+    // Status
+    setHTML("statusText", "Data received and parsed.");
+    document.getElementById("statusBadge").textContent = "OK";
+
+    // Top
+    setText("updatedText", data.updatedAt ? `Updated • ${data.updatedAt}` : "Updated • now");
+    setText("locationChip", `📍 ${data.location || "Location"}`);
+
+    // Debug
+    debugPre.textContent = JSON.stringify(data, null, 2);
+
+    // Weather
+    const w = data.weather || {};
+    setText("weatherLabel", `Weather • ${data.location || "—"}`);
+    setText("tempText", w.tempC || "--°");
+    setText("conditionChip", w.condition || "—");
+    setText("feelsChip", `🌡️ Feels like ${w.feelsLike || "—"}`);
+    setText("windChip", `💨 Wind ${w.wind || "—"}`);
+    setText("humidityText", w.humidity || "—");
+    setText("rainText", w.rainChance || "—");
+
+    // Events: supports string OR array
+    const eventsList = document.getElementById("eventsList");
+    const eventsEmpty = document.getElementById("eventsEmpty");
+    const events = data.events;
+
+    function addItem(listEl, title, desc, right){
+      const li = document.createElement("li");
+      li.className = "item";
+      li.innerHTML = `
+        <div class="left">
+          <div class="t">${title || "—"}</div>
+          ${desc ? `<div class="d">${desc}</div>` : ``}
+        </div>
+        ${right ? `<div class="r">${right}</div>` : ``}
+      `;
+      listEl.appendChild(li);
     }
-  })();
+
+    if (Array.isArray(events) && events.length){
+      eventsEmpty.style.display = "none";
+      events.forEach(e => addItem(eventsList, e.title, e.note || e.location || "", e.time || ""));
+    } else if (typeof events === "string" && events.trim()){
+      eventsEmpty.style.display = "none";
+      addItem(eventsList, "Event", events.trim(), "");
+    } else {
+      eventsEmpty.style.display = "block";
+    }
+
+    // Health: supports object summary OR array items
+    const healthList = document.getElementById("healthList");
+    const healthEmpty = document.getElementById("healthEmpty");
+    const h = data.health;
+
+    if (Array.isArray(h) && h.length){
+      healthEmpty.style.display = "none";
+      h.forEach(x => addItem(healthList, x.title, x.value || x.note || "", x.badge || ""));
+    } else if (h && typeof h === "object"){
+      healthEmpty.style.display = "none";
+      // common keys
+      if (h.steps) addItem(healthList, "Steps", String(h.steps), "🚶");
+      if (h.sleep) addItem(healthList, "Sleep", String(h.sleep), "😴");
+      if (h.heartRate) addItem(healthList, "Heart Rate", String(h.heartRate), "❤️");
+      if (h.note) addItem(healthList, "Note", String(h.note), "");
+      // if empty object
+      if (!Object.keys(h).length) healthEmpty.style.display = "block";
+    } else if (typeof h === "string" && h.trim()){
+      healthEmpty.style.display = "none";
+      addItem(healthList, "Summary", h.trim(), "❤️");
+    } else {
+      healthEmpty.style.display = "block";
+    }
+
+  } catch(err){
+    setHTML("statusText", "Could not parse data. Check Base64 + URL encoding.");
+    document.getElementById("statusBadge").textContent = "Error";
+    debugPre.textContent = String(err);
+    debugPre.style.display = "block";
+    toggleDebug.textContent = "Hide Debug";
+  }
 </script>
 </body>
 </html>
