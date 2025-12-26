@@ -148,6 +148,35 @@
     function escapeHtml(s){
       return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     }
+     function getQueryParam(name) {
+    const url = new URL(window.location.href);
+    return url.searchParams.get(name);
+  }
+
+  function decodeBase64ToJson(b64) {
+    // If Shortcuts URL-encoded it, we must decode first
+    b64 = decodeURIComponent(b64);
+
+    // Standard base64 decode
+    const jsonText = atob(b64);
+
+    return JSON.parse(jsonText);
+  }
+
+  const dataParam = getQueryParam("data");
+  if (dataParam) {
+    try {
+      const payload = decodeBase64ToJson(dataParam);
+      console.log("Payload:", payload);
+
+      // Example:
+      // document.getElementById("weatherTemp").textContent = payload.weather.temp;
+
+    } catch (e) {
+      console.error("Failed to decode data:", e);
+      // show an error on UI if you want
+    }
+  }
   </script>
 </body>
 </html>
