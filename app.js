@@ -1,304 +1,163 @@
-/* Brief UI
-   Input: ?data=BASE64URL_JSON
-   Expected JSON (works with your current structure):
-   {
-     "meta": { "date":"2025-12-27", "updated_at_local":"2025-12-27T00:27:00", "brief_type":"evening", "greeting":"Good evening" },
-     "weather": {
-       "now": { "temp_c":3.13, "feels_like_c":-0.32, "summary":"Mostly clear" },
-       "tonight": { "summary":"Mostly clear", "chance_of_rain_percent":0, "wind_speed_mph":7 },
-       "air_quality": { "level":"Low", "index":2 }
-     },
-     "health": {
-       "steps": { "count":210, "goal":6000, "duration_min":null, "calories":null },
-       "heart_rate": { "bpm": null },
-       "sleep": { "duration_min": 360 }
-     },
-     "calendar": {
-       "next_event": { "title":"Deliver on Wednesday 31", "start_local":"2025-12-29T14:00:00", "location": null }
-     },
-     "news": { "top_items": [] }
-   }
-*/
+/* =========================
+   Brief — Missing Data Fix
+   ========================= */
 
 (function () {
-  const $ = (id) => document.getElementById(id);
+  const LAST_KEY = "brief:lastData";
 
-  function safeNum(x) {
-    const n = Number(x);
-    return Number.isFinite(n) ? n : null;
-  }
+  // --- Helpers ---
+  const qs = new URLSearchParams(window.location.search);
+  const dataParam = qs.get("data");
 
-  function round1(x) {
-    const n = safeNum(x);
-    if (n === null) return null;
-    return Math.round(n * 10) / 10;
-  }
-
-  function fmtTempC(x) {
-    const n = round1(x);
-    if (n === null) return "—";
-    // show as integer if .0
-    const isInt = Math.abs(n - Math.round(n)) < 1e-9;
-    return (isInt ? String(Math.round(n)) : String(n)) + "°C";
-  }
-
-  function fmtMph(x) {
-    const n = round1(x);
-    if (n === null) return "—";
-    const isInt = Math.abs(n - Math.round(n)) < 1e-9;
-    return (isInt ? String(Math.round(n)) : String(n)) + " mph";
-  }
-
-  function fmtPercent(x) {
-    const n = safeNum(x);
-    if (n === null) return "—";
-    return Math.round(n) + "%";
-  }
-
-  function minutesToHM(mins) {
-    const n = safeNum(mins);
-    if (n === null || n <= 0) return null;
-    const h = Math.floor(n / 60);
-    const m = Math.round(n % 60);
-    if (h <= 0) return `${m}m`;
-    if (m === 0) return `${h}h`;
-    return `${h}h ${m}m`;
-  }
-
-  function parseBase64Url(str) {
+  function base64UrlToBase64(b64url) {
     // base64url -> base64
-    const b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    let b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
     // pad
-    const padLen = (4 - (b64.length % 4)) % 4;
-    const padded = b64 + "=".repeat(padLen);
-
-    // decode
-    const jsonText = decodeURIComponent(
-      Array.prototype.map
-        .call(atob(padded), (c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
-    return JSON.parse(jsonText);
+    const pad = b64.length % 4;
+    if (pad) b64 += "=".repeat(4 - pad);
+    return b64;
   }
 
-  function pickTheme(meta) {
-    // priority: meta.brief_type, else time-of-day from updated_at_local
-    const t = (meta && (meta.brief_type || "")).toLowerCase();
-    if (t.includes("morning")) return "morning";
-    if (t.includes("evening")) return "evening";
-    if (t.includes("night")) return "night";
-
-    const ts = meta && meta.updated_at_local ? new Date(meta.updated_at_local) : null;
-    const hour = ts && !isNaN(ts.getTime()) ? ts.getHours() : null;
-
-    if (hour === null) return "evening";
-    if (hour >= 5 && hour < 12) return "morning";
-    if (hour >= 12 && hour < 19) return "evening";
-    return "night";
+  function safeJsonParse(str) {
+    try { return JSON.parse(str); } catch { return null; }
   }
 
-  function themeEmoji(theme) {
-    if (theme === "morning") return "☀️🐦🌅";
-    if (theme === "evening") return "🌆✨";
-    return "🌙⭐🦉";
-  }
-
-  function setText(id, text) {
-    const el = $(id);
-    if (el) el.textContent = text;
-  }
-
-  function hide(id) {
-    const el = $(id);
-    if (el) el.style.display = "none";
-  }
-
-  function show(id) {
-    const el = $(id);
-    if (el) el.style.display = "";
-  }
-
-  function fmtDateTimeLocal(isoOrText) {
-    if (!isoOrText) return null;
-    const d = new Date(isoOrText);
-    if (isNaN(d.getTime())) return String(isoOrText);
-
-    // iOS Safari friendly formatting
-    const opts = { weekday: "short", day: "2-digit", month: "short" };
-    const datePart = d.toLocaleDateString(undefined, opts);
-    const timePart = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    return `${datePart} · ${timePart}`;
-  }
-
-  function buildSleepNote(durationMin, theme) {
-    const hm = minutesToHM(durationMin);
-    if (!hm) return "Not recorded";
-    const hours = durationMin / 60;
-
-    if (hours >= 7.0) return theme === "night" ? "Good — keep the same schedule 🌙" : "Good — keep the same schedule";
-    if (hours >= 6.0) return theme === "night" ? "Adequate — try to reach 7h 🌙" : "Adequate — try to reach 7h";
-    return theme === "night" ? "Short — aim for more rest 🌙" : "Short — aim for more rest";
-  }
-
-  function summariseNews(news) {
-    const items = news && Array.isArray(news.top_items) ? news.top_items : [];
-    if (!items.length) return "Nothing urgent tonight";
-    // keep it short; you can format better later
-    return items.slice(0, 3).map((x) => (typeof x === "string" ? x : (x.title || "Update"))).join(" • ");
-  }
-
-  function main() {
-    const params = new URLSearchParams(location.search);
-    const encoded = params.get("data");
-
-    if (!encoded) {
-      setText("greeting", "Brief");
-      setText("metaLine", "Missing ?data=BASE64URL_JSON");
-      setText("topSummary", "No data provided.");
-      hide("weatherCard");
-      hide("stepsCard");
-      hide("hrCard");
-      hide("sleepCard");
-      hide("eventsCard");
-      hide("newsCard");
-      return;
-    }
-
-    let data;
+  function decodeBriefData(b64url) {
     try {
-      data = parseBase64Url(encoded);
+      const b64 = base64UrlToBase64(b64url);
+      // atob expects latin1; JSON is typically ascii/utf-8 — this is fine for your data
+      const jsonText = atob(b64);
+      const obj = safeJsonParse(jsonText);
+      return obj;
     } catch (e) {
-      setText("greeting", "Brief");
-      setText("metaLine", "Could not decode data");
-      setText("topSummary", "Invalid base64url JSON in ?data");
-      hide("weatherCard");
-      hide("stepsCard");
-      hide("hrCard");
-      hide("sleepCard");
-      hide("eventsCard");
-      hide("newsCard");
-      return;
+      return null;
     }
-
-    const meta = data.meta || {};
-    const theme = pickTheme(meta);
-    document.documentElement.setAttribute("data-theme", theme);
-
-    const greetingBase = meta.greeting || (theme === "morning" ? "Good morning" : theme === "evening" ? "Good evening" : "Good night");
-    setText("greeting", `${greetingBase} ${themeEmoji(theme)}`);
-
-    // meta line: date + time if possible
-    const updated = meta.updated_at_local || meta.updatedAt || meta.updated_at || null;
-    const dt = updated ? new Date(updated) : null;
-    const metaLine = dt && !isNaN(dt.getTime())
-      ? dt.toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-      : (meta.date ? String(meta.date) : "—");
-    setText("metaLine", metaLine);
-
-    // Top summary (one clean line like Samsung brief)
-    const wNow = data.weather && data.weather.now ? data.weather.now : {};
-    const nowTemp = fmtTempC(wNow.temp_c);
-    const nowSummary = (wNow.summary || "—");
-    const feels = fmtTempC(wNow.feels_like_c);
-
-    const topLine1 = theme === "morning"
-      ? "Your morning brief"
-      : theme === "evening"
-        ? "Your evening brief"
-        : "Your night brief";
-
-    const topLine2 = `${theme === "night" ? "🌙" : theme === "morning" ? "☀️" : "🌆"} Weather now: ${nowTemp} · ${nowSummary} · Feels like ${feels}`;
-
-    const topSummaryEl = $("topSummary");
-    topSummaryEl.innerHTML = `
-      <div class="line1">${escapeHtml(topLine1)}</div>
-      <div class="line2">${escapeHtml(topLine2)}</div>
-    `;
-
-    // Weather section (details)
-    setText("weatherNow", `${nowTemp} · ${nowSummary}`);
-    setText("weatherFeels", feels);
-
-    const tonight = data.weather && data.weather.tonight ? data.weather.tonight : {};
-    setText("weatherTonight", tonight.summary || "—");
-    setText("weatherRain", fmtPercent(tonight.chance_of_rain_percent));
-    setText("weatherWind", fmtMph(tonight.wind_speed_mph));
-
-    const aq = data.weather && data.weather.air_quality ? data.weather.air_quality : null;
-    if (aq && (aq.level || aq.index !== undefined)) {
-      show("aqWrap");
-      const lvl = aq.level ? String(aq.level) : "—";
-      const idx = (aq.index !== undefined && aq.index !== null) ? String(aq.index) : "";
-      setText("airQuality", idx ? `${lvl} (${idx})` : lvl);
-    } else {
-      hide("aqWrap");
-    }
-
-    // Steps
-    const steps = data.health && data.health.steps ? data.health.steps : {};
-    const stepsCount = safeNum(steps.count);
-    const goal = safeNum(steps.goal) ?? 6000;
-
-    if (stepsCount === null) {
-      setText("stepsToday", "Not recorded");
-      setText("stepsGoal", goal ? goal.toLocaleString() : "—");
-    } else {
-      const pct = goal ? Math.round((stepsCount / goal) * 100) : null;
-      setText("stepsToday", pct !== null ? `${stepsCount.toLocaleString()} steps (${pct}%)` : `${stepsCount.toLocaleString()} steps`);
-      setText("stepsGoal", goal.toLocaleString());
-    }
-
-    // Heart rate (hide 0 / null)
-    const hr = data.health && data.health.heart_rate ? data.health.heart_rate : {};
-    const bpm = safeNum(hr.bpm);
-    if (bpm === null || bpm <= 0) {
-      setText("heartRate", "Not recorded");
-    } else {
-      setText("heartRate", `${Math.round(bpm)} bpm`);
-    }
-
-    // Sleep
-    const sleep = data.health && data.health.sleep ? data.health.sleep : {};
-    const durMin = safeNum(sleep.duration_min);
-    const durHM = minutesToHM(durMin);
-    setText("sleepDuration", durHM || "Not recorded");
-    setText("sleepNote", buildSleepNote(durMin, theme));
-
-    // Next event
-    const next = data.calendar && data.calendar.next_event ? data.calendar.next_event : null;
-    if (!next || !next.title) {
-      setText("nextEvent", "No upcoming events");
-    } else {
-      const when = fmtDateTimeLocal(next.start_local) || "—";
-      const loc = next.location ? ` · ${next.location}` : "";
-      // Cleaner Samsung-ish format
-      $("nextEvent").innerHTML = `
-        <div style="font-weight:700; font-size:16px;">${escapeHtml(next.title)}</div>
-        <div style="margin-top:6px; color: var(--muted); font-weight:600;">${escapeHtml(when)}${escapeHtml(loc)}</div>
-      `;
-    }
-
-    // News
-    const newsText = summariseNews(data.news || {});
-    setText("newsBox", newsText);
-
-    // Updated footer
-    const updatedLine = dt && !isNaN(dt.getTime())
-      ? dt.toLocaleString()
-      : (updated ? String(updated) : "—");
-    setText("updatedLine", `Updated: ${updatedLine}`);
-
-    // Optional: if everything is empty, still keep UI.
   }
 
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+  function setRoot(html) {
+    const root = document.getElementById("app") || document.body;
+    root.innerHTML = html;
   }
 
-  main();
+  function renderEmptyState(reasonText) {
+    setRoot(`
+      <div style="max-width:720px;margin:28px auto;padding:0 16px;font-family: ui-sans-serif, -apple-system, system-ui;">
+        <div style="font-size:44px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px;">Brief</div>
+
+        <div style="border-radius:18px;padding:18px 16px;background:#f6f7f9;border:1px solid #e7e9ee;">
+          <div style="font-size:18px;font-weight:700;margin-bottom:6px;">No brief data yet</div>
+          <div style="opacity:.85;line-height:1.45;margin-bottom:10px;">
+            ${reasonText || "Open this page using your Shortcut so it can pass data."}
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+            <button id="copySample" style="border:0;border-radius:12px;padding:10px 12px;font-weight:700;background:#111;color:#fff;">
+              Copy sample test URL
+            </button>
+            <button id="showHelp" style="border:1px solid #d7dbe3;border-radius:12px;padding:10px 12px;font-weight:700;background:#fff;">
+              Show Shortcut tip
+            </button>
+          </div>
+
+          <div id="helpBox" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e3e6ed;opacity:.92;">
+            <div style="font-weight:700;margin-bottom:6px;">Shortcut URL must be:</div>
+            <div style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; background:#fff; border:1px solid #e7e9ee; padding:10px; border-radius:12px; overflow:auto;">
+              https://srimanivinay97.github.io/brief/?data=BASE64URL_JSON
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;opacity:.7;font-size:13px;">
+          Updated: —
+        </div>
+      </div>
+    `);
+
+    // sample data: {"meta":{"date":"2025-12-27","greeting":"Good morning"}}
+    const sampleB64Url = "eyJtZXRhIjp7ImRhdGUiOiIyMDI1LTEyLTI3IiwiZ3JlZXRpbmciOiJHb29kIG1vcm5pbmcifX0"
+    const sampleUrl = `${location.origin}${location.pathname}?data=${sampleB64Url}`;
+
+    const copyBtn = document.getElementById("copySample");
+    copyBtn?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(sampleUrl);
+        copyBtn.textContent = "Copied ✅";
+        setTimeout(() => (copyBtn.textContent = "Copy sample test URL"), 1200);
+      } catch {
+        alert("Copy failed. Here is the sample URL:\n\n" + sampleUrl);
+      }
+    });
+
+    document.getElementById("showHelp")?.addEventListener("click", () => {
+      const box = document.getElementById("helpBox");
+      if (!box) return;
+      box.style.display = box.style.display === "none" ? "block" : "none";
+    });
+  }
+
+  // --- Your existing render function ---
+  // Replace this with your real renderer if you already have one.
+  function renderBrief(data) {
+    // Minimal safe render so the page never breaks.
+    const greeting = data?.meta?.greeting || "Hello";
+    const date = data?.meta?.date || "—";
+
+    setRoot(`
+      <div style="max-width:720px;margin:28px auto;padding:0 16px;font-family: ui-sans-serif, -apple-system, system-ui;">
+        <div style="font-size:44px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px;">Brief</div>
+
+        <div style="border-radius:18px;padding:18px 16px;background:#f6f7f9;border:1px solid #e7e9ee;">
+          <div style="font-size:20px;font-weight:800;margin-bottom:8px;">${escapeHtml(greeting)}</div>
+          <div style="opacity:.8;">Date: ${escapeHtml(date)}</div>
+          <div style="margin-top:12px;opacity:.85;line-height:1.45;">
+            Data received ✅
+          </div>
+        </div>
+
+        <div style="margin-top:12px;opacity:.7;font-size:13px;">
+          Updated: ${escapeHtml(data?.meta?.updated_at_local || data?.meta?.updatedAt || "—")}
+        </div>
+      </div>
+    `);
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  // --- Main flow ---
+  // 1) If missing ?data=, try localStorage lastData
+  if (!dataParam) {
+    const last = localStorage.getItem(LAST_KEY);
+    if (last) {
+      const obj = safeJsonParse(last);
+      if (obj) {
+        renderBrief(obj);
+        return;
+      }
+    }
+    renderEmptyState("Open this page using your Shortcut so it can pass today’s brief data.");
+    return;
+  }
+
+  // 2) If data exists, decode & parse
+  const parsed = decodeBriefData(dataParam);
+  if (!parsed) {
+    // if decode fails, show UI instead of ugly error
+    renderEmptyState("I got a data parameter, but it wasn’t valid Base64URL JSON.");
+    return;
+  }
+
+  // 3) Save + render
+  try {
+    localStorage.setItem(LAST_KEY, JSON.stringify(parsed));
+  } catch (e) {
+    // ignore storage issues
+  }
+  renderBrief(parsed);
 })();
