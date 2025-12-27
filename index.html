@@ -7,24 +7,98 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <main class="app" id="app">
+  <main class="wrap" id="app" aria-live="polite">
     <header class="hero">
       <div class="hero-top">
         <h1 class="greeting" id="greeting">Brief</h1>
-        <div class="meta" id="meta"></div>
+        <div class="meta" id="metaLine">—</div>
       </div>
 
-      <div class="hero-strip" id="heroStrip">
-        <!-- filled by JS (primary weather line) -->
+      <div class="topSummary" id="topSummary">
+        <!-- filled by JS -->
       </div>
     </header>
 
-    <section class="grid" id="grid">
-      <!-- cards injected here -->
+    <section class="card" id="weatherCard">
+      <h2>Weather</h2>
+      <div class="grid2">
+        <div class="kv">
+          <div class="k">Now</div>
+          <div class="v" id="weatherNow">—</div>
+        </div>
+        <div class="kv">
+          <div class="k">Feels like</div>
+          <div class="v" id="weatherFeels">—</div>
+        </div>
+        <div class="kv">
+          <div class="k">Tonight</div>
+          <div class="v" id="weatherTonight">—</div>
+        </div>
+        <div class="kv">
+          <div class="k">Rain chance</div>
+          <div class="v" id="weatherRain">—</div>
+        </div>
+        <div class="kv">
+          <div class="k">Wind</div>
+          <div class="v" id="weatherWind">—</div>
+        </div>
+        <div class="kv" id="aqWrap">
+          <div class="k">Air quality</div>
+          <div class="v" id="airQuality">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="stepsCard">
+      <h2>Steps</h2>
+      <div class="grid2">
+        <div class="kv">
+          <div class="k">Today</div>
+          <div class="v" id="stepsToday">—</div>
+        </div>
+        <div class="kv">
+          <div class="k">Goal</div>
+          <div class="v" id="stepsGoal">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="hrCard">
+      <h2>Heart rate</h2>
+      <div class="grid2">
+        <div class="kv">
+          <div class="k">Latest</div>
+          <div class="v" id="heartRate">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="sleepCard">
+      <h2>Sleep</h2>
+      <div class="grid2">
+        <div class="kv">
+          <div class="k">Last night</div>
+          <div class="v" id="sleepDuration">—</div>
+        </div>
+        <div class="kv">
+          <div class="k">Note</div>
+          <div class="v" id="sleepNote">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="eventsCard">
+      <h2>Next event</h2>
+      <div class="eventBox" id="nextEvent">No upcoming events</div>
+    </section>
+
+    <section class="card" id="newsCard">
+      <h2>News</h2>
+      <div class="newsBox" id="newsBox">Nothing urgent</div>
     </section>
 
     <footer class="footer">
-      <div id="updatedAt" class="updatedAt"></div>
+      <div id="updatedLine">Updated: —</div>
       <div class="hint">Tip: pass data as <code>?data=BASE64URL_JSON</code></div>
     </footer>
   </main>
