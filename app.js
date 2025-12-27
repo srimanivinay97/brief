@@ -1,37 +1,37 @@
 /* =========================
-   Brief — app.js (FULL)
-   - Robust base64url JSON decode
+   Brief — app.js (FULL, FIXED)
+   - Decodes Base64URL or Base64 (handles + turned into spaces)
+   - Also supports raw JSON in ?data={...}
    - Null/0-safe rendering (never hides 0)
-   - Builds a clean modern UI even if your HTML is minimal
    - Saves last good payload to localStorage for fallback
    ========================= */
 
 (() => {
   const LAST_KEY = "brief:lastData";
 
-  // ---------- Utils ----------
+  // ---------- Helpers ----------
   const qs = new URLSearchParams(location.search);
-  const dataParam = qs.get("data");
+  let dataParam = qs.get("data");
 
   const isNum = (v) => typeof v === "number" && Number.isFinite(v);
   const isStr = (v) => typeof v === "string" && v.trim().length > 0;
 
-  const nvl = (v, fallback = null) => (v === undefined ? fallback : v);
-  const safe = (v, fallback = "—") => (v ?? fallback); // IMPORTANT: keeps 0
-
+  const safe = (v, fallback = "—") => (v ?? fallback); // keeps 0
   const round1 = (n) => (isNum(n) ? Math.round(n * 10) / 10 : null);
+
+  // IMPORTANT:
+  // URLSearchParams can convert '+' into ' ' in some cases.
+  // This fixes that for Base64 strings.
+  function fixPlusAsSpace(s) {
+    return String(s).replace(/ /g, "+");
+  }
 
   function base64UrlToBase64(b64url) {
     let b64 = String(b64url).replace(/-/g, "+").replace(/_/g, "/");
+    // pad
     const pad = b64.length % 4;
     if (pad) b64 += "=".repeat(4 - pad);
     return b64;
-  }
-
-  function decodeBase64UrlJson(b64url) {
-    const b64 = base64UrlToBase64(b64url);
-    const jsonText = atob(b64);
-    return JSON.parse(jsonText);
   }
 
   function safeJsonParse(str) {
@@ -40,6 +40,29 @@
     } catch {
       return null;
     }
+  }
+
+  function decodeDataParam(raw) {
+    if (!raw) return null;
+
+    // 1) If someone passes raw JSON directly
+    const trimmed = String(raw).trim();
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      const obj = safeJsonParse(trimmed);
+      if (obj) return obj;
+    }
+
+    // 2) Otherwise treat as Base64/Base64URL
+    // Fix '+' that became spaces
+    const fixed = fixPlusAsSpace(trimmed);
+
+    // Try Base64URL -> Base64
+    const b64 = base64UrlToBase64(fixed);
+
+    // atob
+    const jsonText = atob(b64);
+    const obj = safeJsonParse(jsonText);
+    return obj;
   }
 
   function clampHour(h) {
@@ -71,17 +94,14 @@
     if (!isNum(v)) return "—";
     return `${round1(v)}°C`;
   }
-
   function formatPercent(v) {
     if (!isNum(v)) return "—";
     return `${Math.round(v)}%`;
   }
-
   function formatMph(v) {
     if (!isNum(v)) return "—";
     return `${round1(v)} mph`;
   }
-
   function formatMinutesToHM(min) {
     if (!isNum(min)) return "—";
     const m = Math.max(0, Math.round(min));
@@ -89,7 +109,6 @@
     const r = m % 60;
     return `${h}h ${r}m`;
   }
-
   function formatTimeFromIso(iso) {
     if (!isStr(iso)) return null;
     const m = iso.match(/T(\d{2}):(\d{2})/);
@@ -97,8 +116,7 @@
     return `${m[1]}:${m[2]}`;
   }
 
-  // ---------- Schema normalize ----------
-  // Accepts your new schema, and can tolerate missing parts.
+  // ---------- Normalize to your schema ----------
   function normalize(input) {
     const now = new Date();
     const localHour = now.getHours();
@@ -120,7 +138,7 @@
       (isStr(metaIn.brief_type) ? metaIn.brief_type : null) ??
       computeBriefType(hour);
 
-    const out = {
+    return {
       meta: {
         date: metaIn.date ?? null,
         updated_at_local: metaIn.updated_at_local ?? null,
@@ -184,20 +202,14 @@
         top_items: Array.isArray(newsIn?.top_items) ? newsIn.top_items : [],
       },
     };
-
-    return out;
   }
 
-  // ---------- Theme (simple Samsung-ish vibe) ----------
-  function applyTheme(root, hour) {
+  // ---------- Theme ----------
+  function applyTheme(hour) {
     const h = clampHour(hour) ?? 12;
 
-    const theme = document.createElement("style");
-    theme.id = "brief-theme";
-
-    // background gradients based on time
-    let bg = "linear-gradient(180deg, rgba(15,23,42,1) 0%, rgba(2,6,23,1) 100%)"; // night
-    let accent = "#60a5fa"; // default blue
+    let bg = "linear-gradient(180deg, rgba(3,7,18,1) 0%, rgba(2,6,23,1) 100%)";
+    let accent = "#a78bfa";
 
     if (h >= 5 && h <= 11) {
       bg =
@@ -211,167 +223,60 @@
       bg =
         "linear-gradient(180deg, rgba(255,226,196,1) 0%, rgba(239,147,98,1) 40%, rgba(24,39,70,1) 100%)";
       accent = "#fb7185";
-    } else {
-      bg =
-        "radial-gradient(1200px 600px at 20% 0%, rgba(96,165,250,0.25), transparent 60%), " +
-        "radial-gradient(900px 500px at 90% 10%, rgba(167,139,250,0.20), transparent 60%), " +
-        "linear-gradient(180deg, rgba(3,7,18,1) 0%, rgba(2,6,23,1) 100%)";
-      accent = "#a78bfa";
     }
 
-    theme.textContent = `
+    const style = document.createElement("style");
+    style.id = "brief-theme";
+    style.textContent = `
       :root{
-        --brief-accent:${accent};
-        --brief-bg:${bg};
-        --brief-card: rgba(255,255,255,0.10);
-        --brief-card2: rgba(255,255,255,0.07);
-        --brief-border: rgba(255,255,255,0.12);
-        --brief-text: rgba(255,255,255,0.92);
-        --brief-sub: rgba(255,255,255,0.72);
+        --accent:${accent};
+        --bg:${bg};
+        --card: rgba(255,255,255,0.10);
+        --border: rgba(255,255,255,0.12);
+        --text: rgba(255,255,255,0.92);
+        --sub: rgba(255,255,255,0.72);
       }
-      html, body{
-        height:100%;
-        margin:0;
+      html,body{
+        margin:0; height:100%;
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-        background: var(--brief-bg);
-        color: var(--brief-text);
+        background: var(--bg);
+        color: var(--text);
       }
-      .brief-wrap{
-        max-width: 720px;
-        margin: 0 auto;
-        padding: 18px 16px 32px;
-      }
-      .brief-header{
-        display:flex;
-        align-items:flex-start;
-        justify-content:space-between;
-        gap:12px;
-        margin-bottom: 14px;
-      }
-      .brief-title{
-        font-size: 28px;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        line-height: 1.1;
-        margin: 4px 0 0;
-      }
-      .brief-meta{
-        font-size: 13px;
-        color: var(--brief-sub);
-        margin-top: 8px;
-      }
-      .pill{
-        display:inline-flex;
-        align-items:center;
-        gap:8px;
-        padding: 8px 10px;
-        background: rgba(0,0,0,0.18);
-        border: 1px solid var(--brief-border);
-        border-radius: 999px;
-        color: var(--brief-sub);
-        font-size: 12px;
-        white-space: nowrap;
-      }
-      .grid{
-        display:grid;
-        grid-template-columns: 1fr;
-        gap: 12px;
-      }
-      @media (min-width: 640px){
-        .grid{
-          grid-template-columns: 1fr 1fr;
-        }
-      }
-      .card{
-        background: var(--brief-card);
-        border: 1px solid var(--brief-border);
-        border-radius: 16px;
-        padding: 14px 14px 12px;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-      }
-      .card h2{
-        margin: 0 0 10px 0;
-        font-size: 15px;
-        font-weight: 750;
-        letter-spacing: -0.01em;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:10px;
-      }
-      .badge{
-        font-size: 11px;
-        padding: 4px 8px;
-        border-radius: 999px;
-        border: 1px solid var(--brief-border);
-        background: rgba(0,0,0,0.12);
-        color: var(--brief-sub);
-      }
-      .rows{
-        display:grid;
-        gap: 8px;
-      }
-      .row{
-        display:flex;
-        align-items:baseline;
-        justify-content:space-between;
-        gap: 12px;
-      }
-      .k{
-        color: var(--brief-sub);
-        font-size: 13px;
-      }
-      .v{
-        font-size: 14px;
-        font-weight: 650;
-        text-align:right;
-      }
-      .divider{
-        height:1px;
-        background: rgba(255,255,255,0.10);
-        margin: 10px 0;
-      }
-      .accent{
-        color: var(--brief-accent);
-      }
-      .small{
-        font-size: 12px;
-        color: var(--brief-sub);
-      }
-      .list{
-        margin: 6px 0 0;
-        padding: 0 0 0 18px;
-        color: var(--brief-text);
-      }
-      .list li{
-        margin: 6px 0;
-        color: var(--brief-text);
-      }
-      .error{
-        background: rgba(239,68,68,0.16);
-        border: 1px solid rgba(239,68,68,0.35);
-        color: rgba(255,255,255,0.95);
-        padding: 12px 14px;
-        border-radius: 14px;
-      }
-      a { color: var(--brief-accent); }
+      .wrap{max-width:720px;margin:0 auto;padding:18px 16px 32px;}
+      .header{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px;}
+      .title{font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.1;margin:4px 0 0;}
+      .meta{font-size:13px;color:var(--sub);margin-top:8px;}
+      .pill{display:inline-flex;gap:8px;align-items:center;padding:8px 10px;background:rgba(0,0,0,.18);
+        border:1px solid var(--border);border-radius:999px;color:var(--sub);font-size:12px;white-space:nowrap;}
+      .grid{display:grid;grid-template-columns:1fr;gap:12px;}
+      @media (min-width:640px){.grid{grid-template-columns:1fr 1fr;}}
+      .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 14px 12px;
+        backdrop-filter: blur(10px);-webkit-backdrop-filter: blur(10px);}
+      .card h2{margin:0 0 10px 0;font-size:15px;font-weight:750;display:flex;justify-content:space-between;}
+      .badge{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);
+        background:rgba(0,0,0,.12);color:var(--sub);}
+      .rows{display:grid;gap:8px;}
+      .row{display:flex;justify-content:space-between;gap:12px;}
+      .k{color:var(--sub);font-size:13px;}
+      .v{font-size:14px;font-weight:650;text-align:right;}
+      .divider{height:1px;background:rgba(255,255,255,.10);margin:10px 0;}
+      .accent{color:var(--accent);}
+      .small{font-size:12px;color:var(--sub);}
+      .error{background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.35);padding:12px 14px;border-radius:14px;}
     `;
-
-    // replace if exists
     document.getElementById("brief-theme")?.remove();
-    document.head.appendChild(theme);
+    document.head.appendChild(style);
   }
 
-  // ---------- UI Builders ----------
-  function el(tag, attrs = {}, children = []) {
+  // ---------- UI ----------
+  function el(tag, attrs = {}, kids = []) {
     const node = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
       if (k === "class") node.className = v;
       else if (k === "text") node.textContent = v;
       else node.setAttribute(k, v);
     }
-    for (const ch of children) node.appendChild(ch);
+    kids.forEach((k) => node.appendChild(k));
     return node;
   }
 
@@ -382,18 +287,13 @@
     ]);
   }
 
-  function card(title, rightBadgeText, rowsOrNode) {
-    const headerKids = [el("span", { text: title })];
-    if (rightBadgeText) headerKids.push(el("span", { class: "badge", text: rightBadgeText }));
-
-    const content =
-      Array.isArray(rowsOrNode)
-        ? el("div", { class: "rows" }, rowsOrNode)
-        : rowsOrNode;
-
+  function card(title, badgeText, contentNode) {
     return el("section", { class: "card" }, [
-      el("h2", {}, headerKids),
-      content,
+      el("h2", {}, [
+        el("span", { text: title }),
+        badgeText ? el("span", { class: "badge", text: badgeText }) : el("span"),
+      ]),
+      contentNode,
     ]);
   }
 
@@ -406,158 +306,143 @@
   }
 
   function buildApp(data) {
-    const root = el("div", { class: "brief-wrap" });
+    const wrap = el("div", { class: "wrap" });
 
     const location = isStr(data.meta.location) ? data.meta.location : "Your area";
     const updated = isStr(data.meta.updated_at_local) ? data.meta.updated_at_local : null;
 
-    const headerLeft = el("div", {}, [
-      el("div", { class: "brief-title" , text: `${emojiForTime(data.meta.local_time_hour)} ${safe(data.meta.greeting, "Brief")}` }),
-      el("div", { class: "brief-meta", text: `${safe(location)}${updated ? ` • Updated ${updated.replace("T", " ")}` : ""}` }),
-    ]);
+    wrap.appendChild(
+      el("div", { class: "header" }, [
+        el("div", {}, [
+          el("div", { class: "title", text: `${emojiForTime(data.meta.local_time_hour)} ${safe(data.meta.greeting, "Brief")}` }),
+          el("div", {
+            class: "meta",
+            text: `${location}${updated ? ` • Updated ${updated.replace("T", " ")}` : ""}`,
+          }),
+        ]),
+        el("div", {}, [
+          el("div", { class: "pill" }, [
+            el("span", { class: "accent", text: safe(data.meta.date, "—") }),
+            el("span", { text: `• ${safe(data.meta.brief_type, "—")}` }),
+          ]),
+        ]),
+      ])
+    );
 
-    const headerRight = el("div", {}, [
-      el("div", { class: "pill" }, [
-        el("span", { class: "accent", text: safe(data.meta.date, "—") }),
-        el("span", { text: `• ${safe(data.meta.brief_type, "—")}` }),
-      ]),
-    ]);
-
-    root.appendChild(el("div", { class: "brief-header" }, [headerLeft, headerRight]));
-
-    // Weather card
+    // Weather
     const wNow = data.weather.now;
     const wTonight = data.weather.tonight;
     const wAQ = data.weather.air_quality;
     const wTom = data.weather.tomorrow;
 
-    const weatherRows = [
+    const weatherNode = el("div", { class: "rows" }, [
       row("Now", `${safe(wNow.summary, "—")}${isNum(wNow.temp_c) ? `, ${formatTempC(wNow.temp_c)}` : ""}`),
       row("Feels like", formatTempC(wNow.feels_like_c)),
       row("Tonight", safe(wTonight.summary, "—")),
       row("Rain chance", formatPercent(wTonight.chance_of_rain_percent)),
       row("Wind", formatMph(wTonight.wind_speed_mph)),
       row("Air quality", `${safe(wAQ.level, "—")}${wAQ.index != null ? ` (AQI ${wAQ.index})` : ""}`),
-    ];
-
-    const weatherBadge = wTom?.date ? `Tomorrow ${wTom.date}` : null;
-
-    const weatherNode = el("div", { class: "rows" }, [
-      ...weatherRows,
       el("div", { class: "divider" }),
       row("Tomorrow", `${safe(wTom.summary, "—")}${isNum(wTom.min_c) && isNum(wTom.max_c) ? ` • ${formatTempC(wTom.min_c)}–${formatTempC(wTom.max_c)}` : ""}`),
     ]);
 
-    // Steps card
+    // Steps
     const steps = data.health.steps;
-    const stepsRows = [
+    const stepsNode = el("div", { class: "rows" }, [
       row("Today", steps.count != null ? String(steps.count) : "—"),
       row("Duration", steps.duration_min != null ? formatMinutesToHM(steps.duration_min) : "—"),
       row("Calories", steps.calories != null ? String(steps.calories) : "—"),
-    ];
+    ]);
 
-    // Heart rate card
+    // Heart rate
     const hr = data.health.heart_rate;
-    const hrRows = [row("Latest", hr.bpm != null ? `${hr.bpm} bpm` : "—")];
+    const hrNode = el("div", { class: "rows" }, [
+      row("Latest", hr.bpm != null ? `${hr.bpm} bpm` : "—"),
+    ]);
 
-    // Sleep card
+    // Sleep
     const sleep = data.health.sleep;
-    const sleepRows = [row("Last night", sleep.duration_min != null ? formatMinutesToHM(sleep.duration_min) : "—")];
+    const sleepNode = el("div", { class: "rows" }, [
+      row("Last night", sleep.duration_min != null ? formatMinutesToHM(sleep.duration_min) : "—"),
+    ]);
 
-    // Next event card
+    // Next event
     const ne = data.calendar.next_event;
     const nextTime = formatTimeFromIso(ne.start_local);
-    const nextEventText = ne.title ? ne.title : "No upcoming events";
-    const nextBadge = nextTime ? `${nextTime}` : null;
-
-    const nextRows = [
-      row("Next", nextEventText),
-      row("When", ne.start_local ? safe(ne.start_local, "—").replace("T", " ") : "—"),
+    const nextBadge = nextTime ? nextTime : null;
+    const nextNode = el("div", { class: "rows" }, [
+      row("Next", ne.title ?? "No upcoming events"),
+      row("When", ne.start_local ? ne.start_local.replace("T", " ") : "—"),
       row("Where", safe(ne.location, "—")),
-    ];
+    ]);
 
-    // News card
+    // News
     const items = data.news.top_items;
-    const newsNode = (() => {
-      if (!items || items.length === 0) {
-        return el("div", { class: "rows" }, [
-          row("Status", "Nothing urgent"),
-          el("div", { class: "small", text: "No top items in this update." }),
-        ]);
-      }
-      const ul = el("ul", { class: "list" }, []);
-      items.slice(0, 6).forEach((it) => {
-        const title = isStr(it?.title) ? it.title : null;
-        const src = isStr(it?.source) ? ` — ${it.source}` : "";
-        if (!title) return;
-        ul.appendChild(el("li", { text: `${title}${src}` }));
-      });
-      return ul;
-    })();
+    const newsNode =
+      Array.isArray(items) && items.length
+        ? el("div", { class: "rows" }, items.slice(0, 6).map((it) => row("•", safe(it?.title, "—"))))
+        : el("div", { class: "rows" }, [
+            row("Status", "Nothing urgent"),
+            el("div", { class: "small", text: "No top items in this update." }),
+          ]);
 
     const grid = el("div", { class: "grid" }, [
-      card("Weather", weatherBadge, weatherNode),
-      card("Steps", null, stepsRows),
-      card("Heart rate", null, hrRows),
-      card("Sleep", null, sleepRows),
-      card("Next event", nextBadge, nextRows),
+      card("Weather", wTom?.date ? `Tomorrow ${wTom.date}` : null, weatherNode),
+      card("Steps", null, stepsNode),
+      card("Heart rate", null, hrNode),
+      card("Sleep", null, sleepNode),
+      card("Next event", nextBadge, nextNode),
       card("News", null, newsNode),
     ]);
 
-    root.appendChild(grid);
-    return root;
+    wrap.appendChild(grid);
+    return wrap;
   }
 
-  function showError(message, detail) {
-    const wrap = document.createElement("div");
-    wrap.className = "brief-wrap";
-    wrap.appendChild(
-      el("div", { class: "error" }, [
-        el("div", { text: message }),
-        detail ? el("div", { class: "small", text: detail }) : el("div"),
-        el("div", { class: "small", text: "Tip: open the page like ?data=BASE64URL_JSON" }),
+  function showError(msg, detail) {
+    applyTheme(new Date().getHours());
+    document.body.innerHTML = "";
+    document.body.appendChild(
+      el("div", { class: "wrap" }, [
+        el("div", { class: "error" }, [
+          el("div", { text: msg }),
+          detail ? el("div", { class: "small", text: detail }) : el("div"),
+          el("div", { class: "small", text: "Tip: pass data as ?data=BASE64URL_JSON (URL-safe base64)" }),
+        ]),
       ])
     );
-    document.body.innerHTML = "";
-    document.body.appendChild(wrap);
   }
 
-  // ---------- Boot ----------
   function loadData() {
-    // 1) Try query param
+    // 1) URL param
     if (dataParam) {
       try {
-        const obj = decodeBase64UrlJson(dataParam);
-        localStorage.setItem(LAST_KEY, JSON.stringify(obj));
-        return obj;
+        const obj = decodeDataParam(dataParam);
+        if (obj) {
+          localStorage.setItem(LAST_KEY, JSON.stringify(obj));
+          return obj;
+        }
       } catch (e) {
-        // fall through to storage
-        console.warn("Decode failed, trying last stored payload.", e);
+        console.warn("Decode failed, will try cache.", e);
       }
     }
 
-    // 2) Try localStorage fallback
+    // 2) cache fallback
     const last = localStorage.getItem(LAST_KEY);
     const parsed = last ? safeJsonParse(last) : null;
-    if (parsed) return parsed;
-
-    return null;
+    return parsed;
   }
 
   document.addEventListener("DOMContentLoaded", () => {
     const raw = loadData();
     if (!raw) {
-      applyTheme(document.body, new Date().getHours());
-      showError("Missing or invalid data parameter.", "No valid JSON found in URL or cache.");
+      showError("Missing or invalid data parameter.", "Could not decode ?data= payload and no cached data found.");
       return;
     }
 
     const data = normalize(raw);
+    applyTheme(data.meta.local_time_hour);
 
-    // Apply theme based on local_time_hour (or current hour fallback)
-    applyTheme(document.body, data.meta.local_time_hour);
-
-    // Render
     document.body.innerHTML = "";
     document.body.appendChild(buildApp(data));
   });
