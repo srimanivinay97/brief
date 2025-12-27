@@ -1,393 +1,307 @@
-/* ========= Brief UI (single-file logic) =========
-   - Reads base64 JSON from ?data=
-   - Handles markdown code fences ```json ... ```
-   - Supports your current JSON schema:
-     {
-       updatedAt, location:"lat,lon",
-       weather:{ tempC, feelsLike, condition, tonight:{summary,rainChancePercent,windMph}, tomorrow:{...}},
-       health:{ steps, distanceKm, caloriesKcal, activeMinutes, heartRateBpm },
-       sleep:{ start, end, durationMinutes, quality, notes },
-       events:[{title,start,location}],
-       news:[{title,source,time}]
-     }
-   - Also supports canonical schema from earlier
+/* Brief UI (Morning/Evening/Night) - supports your JSON schema
+   Data input: ?data=BASE64URL(JSON)
 */
 
 (function () {
   const $ = (id) => document.getElementById(id);
 
-  // ---------- Helpers ----------
-  function safeNum(v) {
-    if (v === null || v === undefined) return null;
-    const n = Number(String(v).replace(/[^\d.\-]/g, ""));
+  // ---------- Base64URL decode ----------
+  function base64UrlToUtf8(b64url) {
+    const b64 = (b64url || "")
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(b64url.length / 4) * 4, "=");
+    const binary = atob(b64);
+    const bytes = new Uint8Array([...binary].map((c) => c.charCodeAt(0)));
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+
+  function getQueryParam(name) {
+    const url = new URL(window.location.href);
+    return url.searchParams.get(name);
+  }
+
+  // ---------- format helpers ----------
+  function safeNumber(x) {
+    const n = Number(x);
     return Number.isFinite(n) ? n : null;
   }
-
-  function round1(n) { return Math.round(n * 10) / 10; }
-  function round0(n) { return Math.round(n); }
-
-  function fmtC(n) {
-    if (n === null) return "—";
-    return `${round0(n)}°C`;
+  function fmtTempC(n) {
+    const v = safeNumber(n);
+    if (v === null) return null;
+    return `${Math.round(v)}°C`; // no long decimals
   }
-
-  function fmtPct(n) {
-    if (n === null) return "—";
-    return `${round0(n)}%`;
+  function fmtPercent(n) {
+    const v = safeNumber(n);
+    if (v === null) return null;
+    return `${Math.round(v)}%`;
   }
-
   function fmtMph(n) {
-    if (n === null) return "—";
-    return `${round0(n)} mph`;
+    const v = safeNumber(n);
+    if (v === null) return null;
+    return `${Math.round(v)} mph`;
   }
-
-  function fmtKm(n) {
-    if (n === null) return "—";
-    const abs = Math.abs(n);
-    const d = abs < 1 ? 2 : 1;
-    return `${n.toFixed(d)} km`;
+  function fmtBpm(n) {
+    const v = safeNumber(n);
+    if (v === null) return null;
+    return `${Math.round(v)} bpm`;
   }
-
-  function minutesToHM(mins) {
-    const m = safeNum(mins);
-    if (m === null) return "—";
+  function minutesToHuman(mins) {
+    const m = safeNumber(mins);
+    if (m === null) return null;
     const h = Math.floor(m / 60);
     const r = Math.round(m % 60);
     if (h <= 0) return `${r}m`;
+    if (r <= 0) return `${h}h`;
     return `${h}h ${r}m`;
   }
-
-  function stripCodeFences(s) {
-    if (!s) return s;
-    let t = String(s).trim();
-
-    // Remove leading ```json or ``` and trailing ```
-    if (t.startsWith("```")) {
-      // remove first line starting with ```
-      const firstNewline = t.indexOf("\n");
-      if (firstNewline !== -1) t = t.slice(firstNewline + 1);
-      // remove ending ```
-      const lastFence = t.lastIndexOf("```");
-      if (lastFence !== -1) t = t.slice(0, lastFence);
-      t = t.trim();
-    }
-    return t;
+  function parseLocalISO(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function fmtDateTime(d) {
+    if (!d) return "";
+    return d.toLocaleString(undefined, {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
-  function decodeB64(b64) {
-    // urlsafe base64 support
-    const cleaned = String(b64).replace(/-/g, "+").replace(/_/g, "/");
-    try {
-      const pad = cleaned.length % 4 ? "=".repeat(4 - (cleaned.length % 4)) : "";
-      const raw = atob(cleaned + pad);
-      const jsonText = stripCodeFences(raw);
-      return JSON.parse(jsonText);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function getParam(name) {
-    const u = new URL(window.location.href);
-    return u.searchParams.get(name);
-  }
-
-  function nowLocalTimeHHMM() {
-    const d = new Date();
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-
-  function inferTimeOfDay(hhmm) {
-    const h = safeNum(String(hhmm).slice(0, 2));
+  // ---------- period + theme ----------
+  function inferPeriodFromHour(hour) {
+    const h = safeNumber(hour);
     if (h === null) return "night";
     if (h >= 5 && h < 12) return "morning";
-    if (h >= 12 && h < 18) return "evening";
+    if (h >= 12 && h < 19) return "evening";
     return "night";
   }
 
-  function isoToHHMM(iso) {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return null;
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  function normalizeBriefType(meta) {
+    // If meta.brief_type is wrong (like evening at 0:00), trust local_time_hour first
+    const byHour = inferPeriodFromHour(meta?.local_time_hour);
+    return byHour;
   }
 
-  function formatDateLine(updatedAtIso) {
-    // If updatedAt is ISO, show like "Sat 27 Dec"
-    if (!updatedAtIso) return null;
-    const d = new Date(updatedAtIso);
-    if (isNaN(d.getTime())) return String(updatedAtIso);
-    return d.toLocaleDateString([], { weekday: "long", day: "2-digit", month: "short" });
+  function greetingFor(period) {
+    if (period === "morning") return "Good morning ☀️🌅🐦";
+    if (period === "evening") return "Good evening 🌆✨";
+    return "Good night 🌙⭐🦉";
   }
 
-  function formatLocation(loc) {
-    // Your loc is "51.54,0.06" -> show "Lat 51.54 • Lon 0.06"
-    if (!loc) return "—";
-    const parts = String(loc).split(",").map(s => s.trim());
-    if (parts.length === 2) {
-      const lat = safeNum(parts[0]);
-      const lon = safeNum(parts[1]);
-      if (lat !== null && lon !== null) {
-        return `Lat ${lat.toFixed(2)} • Lon ${lon.toFixed(2)}`;
+  function setTheme(period) {
+    document.documentElement.classList.remove("theme-morning", "theme-evening", "theme-night");
+    document.documentElement.classList.add(`theme-${period}`);
+  }
+
+  // ---------- UI helpers ----------
+  function card(title, rowsHtml, noteHtml = "") {
+    return `
+      <article class="card">
+        <h2>${title}</h2>
+        <div class="rows">${rowsHtml}</div>
+        ${noteHtml ? `<div class="note">${noteHtml}</div>` : ""}
+      </article>
+    `;
+  }
+
+  function row(label, value) {
+    return `
+      <div class="row">
+        <div class="label">${label}</div>
+        <div class="value">${value}</div>
+      </div>
+    `;
+  }
+
+  function badge(text) {
+    return `<span class="badge">${text}</span>`;
+  }
+
+  // ---------- render ----------
+  function render(data) {
+    const meta = data?.meta || {};
+    const period = normalizeBriefType(meta);
+    setTheme(period);
+
+    $("greeting").textContent = greetingFor(period);
+
+    // Meta text: DO NOT show coordinates
+    const updatedLocal = meta?.updated_at_local ? parseLocalISO(meta.updated_at_local) : new Date();
+    const metaLine1 = "Brief"; // keep clean (you can change to "London" if you later provide a city name)
+    const metaLine2 = updatedLocal
+      ? updatedLocal.toLocaleString(undefined, { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+      : "";
+
+    $("meta").innerHTML = `<div>${metaLine1}</div><div>${metaLine2}</div>`;
+
+    // WEATHER headline strip
+    const w = data?.weather || {};
+    const now = w?.now || {};
+    const tonight = w?.tonight || {};
+
+    const temp = fmtTempC(now?.temp_c);
+    const feels = fmtTempC(now?.feels_like_c);
+    const cond = now?.summary || tonight?.summary || "Weather";
+    const rain = fmtPercent(tonight?.chance_of_rain_percent ?? 0);
+    const wind = fmtMph(tonight?.wind_speed_mph);
+
+    $("heroStrip").innerHTML = `
+      <div class="strip-left">
+        <div class="strip-title">Weather</div>
+        <div class="strip-sub">
+          ${cond}
+          ${feels ? ` · Feels like ${feels}` : ""}
+          ${rain ? ` · Rain ${rain}` : ""}
+          ${wind ? ` · Wind ${wind}` : ""}
+        </div>
+      </div>
+      <div class="strip-right">${temp ? temp : "—"}</div>
+    `;
+
+    const cards = [];
+
+    // 1) Weather card
+    {
+      const rows = [];
+      rows.push(row("Now", `${temp || "—"} · ${now?.summary || cond || "—"}`));
+      if (feels) rows.push(row("Feels like", feels));
+      rows.push(row("Tonight", `${tonight?.summary || "—"}`));
+      rows.push(row("Rain chance", rain || "0%"));
+      rows.push(row("Wind", wind || "—"));
+
+      // Air quality
+      const aq = w?.air_quality || {};
+      if (aq?.level || aq?.index !== undefined) {
+        const aqText = `${aq?.level || "—"}${aq?.index !== undefined ? ` · ${aq.index}` : ""}`;
+        rows.push(row("Air quality", aqText));
+      }
+
+      // Tomorrow (optional)
+      const tmr = w?.tomorrow || {};
+      const tMin = fmtTempC(tmr?.min_c);
+      const tMax = fmtTempC(tmr?.max_c);
+      if (tmr?.summary || tMin || tMax) {
+        rows.push(row("Tomorrow", `${tmr?.summary || "—"}${tMin && tMax ? ` · ${tMin}–${tMax}` : ""}`));
+      }
+
+      cards.push(card("Weather", rows.join("")));
+    }
+
+    // 2) Steps card
+    {
+      const s = data?.health?.steps || {};
+      const steps = safeNumber(s?.count);
+      const durationMin = safeNumber(s?.duration_min);
+      const calories = safeNumber(s?.calories);
+
+      const rows = [];
+      rows.push(row("Today", steps !== null ? `${Math.round(steps)} steps` : "No step data"));
+      if (durationMin !== null) rows.push(row("Duration", minutesToHuman(durationMin)));
+      if (calories !== null) rows.push(row("Calories", `${Math.round(calories)} kcal`));
+      rows.push(row("Goal", `6,000`)); // you can wire this from JSON later if you add it
+
+      let note = "";
+      if (steps === 0) note = "Light activity day — tomorrow we go again 🌙";
+      cards.push(card("Steps", rows.join(""), note));
+    }
+
+    // 3) Heart rate card
+    {
+      const hr = data?.health?.heart_rate || {};
+      const bpm = safeNumber(hr?.bpm);
+
+      const rows = [];
+      if (bpm !== null) rows.push(row("Latest", fmtBpm(bpm)));
+      else rows.push(row("Status", "No heart-rate data today"));
+
+      cards.push(card("Heart rate", rows.join(""), bpm === null ? "Apple Watch not worn or data unavailable." : ""));
+    }
+
+    // 4) Sleep card
+    {
+      const sl = data?.health?.sleep || {};
+      const durationMin = safeNumber(sl?.duration_min);
+
+      const rows = [];
+      if (durationMin !== null) rows.push(row("Last night", minutesToHuman(durationMin)));
+      else rows.push(row("Status", "No sleep data yet"));
+
+      const note = durationMin !== null ? "Good — keep the same sleep schedule 🌙" : "Sleep will appear after you wake up.";
+      cards.push(card("Sleep", rows.join(""), note));
+    }
+
+    // 5) Next event card
+    {
+      const ev = data?.calendar?.next_event || null;
+      const rows = [];
+
+      if (ev?.title) rows.push(row("Next", ev.title));
+      const d = parseLocalISO(ev?.start_local);
+      if (d) rows.push(row("When", fmtDateTime(d)));
+      if (ev?.location) rows.push(row("Where", ev.location));
+
+      if (rows.length === 0) rows.push(row("Calendar", "No upcoming events"));
+
+      cards.push(card("Next event", rows.join("")));
+    }
+
+    // 6) News card
+    {
+      const items = Array.isArray(data?.news?.top_items) ? data.news.top_items : [];
+      const rows = [];
+
+      if (items.length === 0) {
+        rows.push(row("Top", "Nothing urgent tonight"));
+        cards.push(card("News", rows.join(""), "Enjoy a peaceful night 🌙⭐🦉"));
+      } else {
+        for (const it of items.slice(0, 3)) {
+          if (typeof it === "string") rows.push(row("•", it));
+          else rows.push(row("•", it?.title || "News"));
+        }
+        cards.push(card("News", rows.join("")));
       }
     }
-    return String(loc);
+
+    $("grid").innerHTML = cards.join("");
+
+    // Footer updated time
+    const u = meta?.updated_at_local ? parseLocalISO(meta.updated_at_local) : null;
+    $("updatedAt").textContent = u ? `Updated: ${u.toLocaleString()}` : "";
   }
 
-  // ---------- Demo fallback ----------
-  const demo = {
-    timeOfDay: "night",
-    date: "Friday, 26 Dec",
-    time: "20:40",
-    location: "London",
-    weather: {
-      tempC: 4,
-      feelsLikeC: 1,
-      condition: "Mostly clear",
-      rainChance: 0,
-      windMph: 7,
-      tonightSummary: "Mostly clear"
-    },
-    health: {
-      steps: 210,
-      distanceKm: 0.16,
-      calories: 18,
-      heartRate: 72,
-      stepsGoal: 6000,
-      sleep: { durationMinutes: 415 }
-    },
-    events: [{ title: "Team sync", time: "09:30" }],
-    news: ["UK inflation eases slightly ahead of New Year"],
-    updatedAt: "Updated just now"
-  };
-
-  // ---------- Normalize (supports your schema + canonical + older) ----------
-  function normalize(input) {
-    if (!input || typeof input !== "object") return demo;
-
-    // Your current schema detected by updatedAt + weather.tonight + sleep.durationMinutes
-    const looksLikeYours =
-      input.updatedAt && input.weather && input.weather.tonight && input.sleep && (input.sleep.durationMinutes !== undefined);
-
-    if (looksLikeYours) {
-      const time = nowLocalTimeHHMM();
-      const tod = inferTimeOfDay(time);
-
-      const steps = safeNum(input.health?.steps);
-      const distanceKm = safeNum(input.health?.distanceKm);
-      const calories = safeNum(input.health?.caloriesKcal);
-      const hr = safeNum(input.health?.heartRateBpm);
-
-      const sleepMin = safeNum(input.sleep?.durationMinutes);
-      const sleepQuality = input.sleep?.quality ? String(input.sleep.quality) : null;
-
-      // events -> make a compact object with title + time
-      const events = Array.isArray(input.events) ? input.events : [];
-      const mappedEvents = events.map(e => ({
-        title: e.title || "Event",
-        time: isoToHHMM(e.start) || null,
-        location: e.location || null
-      }));
-
-      // news -> list of strings (title • source)
-      const newsArr = Array.isArray(input.news) ? input.news : [];
-      const mappedNews = newsArr.map(n => {
-        if (typeof n === "string") return n;
-        const title = n.title ? String(n.title) : "News";
-        const src = n.source ? String(n.source) : null;
-        return src ? `${title} • ${src}` : title;
+  // ---------- boot ----------
+  function boot() {
+    const dataParam = getQueryParam("data");
+    if (!dataParam) {
+      // If no ?data=, show a clean demo
+      render({
+        meta: { updated_at_local: new Date().toISOString(), local_time_hour: new Date().getHours() },
+        weather: { now: { temp_c: 3.1, feels_like_c: -0.3, summary: "Mostly clear" }, tonight: { summary: "Mostly clear", chance_of_rain_percent: 0, wind_speed_mph: 7 } },
+        health: { steps: { count: 210 }, heart_rate: { bpm: null }, sleep: { duration_min: 360 } },
+        calendar: { next_event: { title: "Deliver on Wednesday 31", start_local: "2025-12-29T14:00:00" } },
+        news: { top_items: [] }
       });
-
-      return {
-        timeOfDay: tod,
-        date: formatDateLine(input.updatedAt) || demo.date,
-        time,
-        location: formatLocation(input.location),
-        weather: {
-          tempC: safeNum(input.weather?.tempC),
-          feelsLikeC: safeNum(input.weather?.feelsLike),
-          condition: input.weather?.condition || input.weather?.tonight?.summary || "—",
-          rainChance: safeNum(input.weather?.tonight?.rainChancePercent),
-          windMph: safeNum(input.weather?.tonight?.windMph),
-          tonightSummary: input.weather?.tonight?.summary || "—"
-        },
-        health: {
-          steps: steps,
-          distanceKm: distanceKm,
-          calories: calories,
-          heartRate: hr,
-          stepsGoal: safeNum(input.health?.stepsGoal) ?? null,
-          sleep: { durationMinutes: sleepMin }
-        },
-        // expose extra sleep info for note rendering
-        _sleepMeta: {
-          quality: sleepQuality,
-          notes: input.sleep?.notes ? String(input.sleep.notes) : null,
-          start: input.sleep?.start || null,
-          end: input.sleep?.end || null
-        },
-        events: mappedEvents,
-        news: mappedNews,
-        updatedAt: input.updatedAt
-      };
+      return;
     }
 
-    // Canonical schema from earlier
-    if (input.weather && input.health && (input.time || input.date)) {
-      const t = input.time || nowLocalTimeHHMM();
-      const tod = input.timeOfDay || inferTimeOfDay(t);
-      return { ...demo, ...input, time: t, timeOfDay: tod };
+    try {
+      const json = base64UrlToUtf8(dataParam);
+      const data = JSON.parse(json);
+      render(data);
+    } catch (e) {
+      console.error(e);
+      document.body.innerHTML = `
+        <div style="padding:20px;font-family:system-ui;color:#fff">
+          <h2>Invalid data</h2>
+          <p>Could not decode/parse <code>?data=</code>.</p>
+        </div>
+      `;
     }
-
-    // Fallback: try old nested shortcut style
-    if (input.weather && input.health) {
-      const t = nowLocalTimeHHMM();
-      const tod = inferTimeOfDay(t);
-
-      const tempC = safeNum(input.weather.tempC);
-      const feels = safeNum(input.weather.feelsLike);
-
-      const steps = safeNum(input.health.steps);
-      const hr = safeNum(input.health.heartRate);
-
-      let sleepMinutes = safeNum(input.health.sleep?.durationMinutes);
-
-      const distanceKm = safeNum(input.health.distanceKm) ?? (steps !== null ? steps * 0.00075 : null);
-      const calories = safeNum(input.health.calories) ?? (steps !== null ? Math.round(steps * 0.04) : null);
-
-      return {
-        timeOfDay: tod,
-        date: input.updatedAt ? String(input.updatedAt).split(" at ")[0] : demo.date,
-        time: t,
-        location: input.location || demo.location,
-        weather: {
-          tempC,
-          feelsLikeC: feels,
-          condition: input.weather.condition || "—",
-          rainChance: safeNum(input.weather.rainChance),
-          windMph: safeNum(input.weather.windMph),
-          tonightSummary: input.weather.tonightSummary || input.weather.condition || "—"
-        },
-        health: {
-          steps: steps,
-          distanceKm: distanceKm,
-          calories: calories,
-          heartRate: hr,
-          stepsGoal: safeNum(input.health.stepsGoal) ?? null,
-          sleep: { durationMinutes: sleepMinutes }
-        },
-        events: Array.isArray(input.events) ? input.events : [],
-        news: Array.isArray(input.news) ? input.news : [],
-        updatedAt: input.updatedAt || demo.updatedAt
-      };
-    }
-
-    return demo;
   }
 
-  // ---------- Greeting ----------
-  function getGreeting(tod) {
-    if (tod === "morning") return { title: "Good morning", emoji: "☀️🐦🌅" };
-    if (tod === "evening") return { title: "Good evening", emoji: "🌆✨" };
-    return { title: "Good night", emoji: "🌙⭐🦉" };
-  }
-
-  function applyTheme(tod) {
-    const briefLabel = tod === "morning" ? "Morning brief" : (tod === "evening" ? "Evening brief" : "Night brief");
-    $("briefPill").textContent = briefLabel;
-  }
-
-  // ---------- Render ----------
-  function render(data) {
-    const { title, emoji } = getGreeting(data.timeOfDay);
-    $("greeting").textContent = `${title} ${emoji}`;
-
-    $("timePill").textContent = data.time || "—";
-    $("dateLine").textContent = data.date || "—";
-    $("locationPill").textContent = data.location || "—";
-
-    // Weather
-    const tempC = safeNum(data.weather?.tempC);
-    const feels = safeNum(data.weather?.feelsLikeC);
-    const rain = safeNum(data.weather?.rainChance);
-    const wind = safeNum(data.weather?.windMph);
-
-    $("tempBig").textContent = fmtC(tempC);
-    $("condBig").textContent = data.weather?.condition || "—";
-    $("tonightLine").textContent = `Tonight: ${data.weather?.tonightSummary || "—"}`;
-    $("feelsLike").textContent = fmtC(feels);
-    $("rainChance").textContent = fmtPct(rain);
-    $("wind").textContent = fmtMph(wind);
-
-    // Steps (IMPORTANT: if null -> show —, not 0)
-    const steps = safeNum(data.health?.steps);
-    $("stepsBig").textContent = steps === null ? "—" : `${round0(steps).toLocaleString()} steps`;
-
-    const distanceKm = safeNum(data.health?.distanceKm);
-    const calories = safeNum(data.health?.calories);
-    const goal = safeNum(data.health?.stepsGoal);
-
-    $("distance").textContent = distanceKm === null ? "—" : fmtKm(round1(distanceKm));
-    $("calories").textContent = calories === null ? "—" : `${round0(calories)} kcal`;
-    $("stepsGoal").textContent = goal === null ? "—" : `${round0(goal).toLocaleString()}`;
-
-    // Heart rate
-    const hr = safeNum(data.health?.heartRate);
-    $("hrBig").textContent = hr === null ? "—" : `${round0(hr)} bpm`;
-    $("hrNote").textContent = hr === null ? "No heart-rate data" : "Latest reading";
-
-    // Sleep (your schema includes quality/notes)
-    const sleepMin = safeNum(data.health?.sleep?.durationMinutes);
-    $("sleepBig").textContent = minutesToHM(sleepMin);
-
-    const q = data._sleepMeta?.quality;
-    const notes = data._sleepMeta?.notes;
-    if (sleepMin === null) {
-      $("sleepNote").textContent = "No sleep data";
-    } else {
-      let s = "Total sleep duration";
-      if (q) s = `${q} sleep`;
-      if (notes) s = `${s} • ${notes}`;
-      $("sleepNote").textContent = s;
-    }
-
-    // Events
-    const events = Array.isArray(data.events) ? data.events : [];
-    if (events.length === 0) {
-      $("eventBig").textContent = "No events";
-      $("eventNote").textContent = "No upcoming meetings";
-    } else {
-      const e = events[0];
-      $("eventBig").textContent = e.title || "Event";
-      if (e.time) $("eventNote").textContent = `Starts at ${e.time}`;
-      else $("eventNote").textContent = "Upcoming event";
-    }
-
-    // News (now can be strings already)
-    const news = Array.isArray(data.news) ? data.news : [];
-    const ul = $("newsList");
-    ul.innerHTML = "";
-    if (news.length === 0) {
-      const li = document.createElement("li");
-      li.textContent = "No news items";
-      ul.appendChild(li);
-    } else {
-      news.slice(0, 5).forEach((n) => {
-        const li = document.createElement("li");
-        li.textContent = String(n);
-        ul.appendChild(li);
-      });
-    }
-
-    // Updated at
-    $("updatedAt").textContent = data.updatedAt ? `Updated: ${String(data.updatedAt)}` : "";
-  }
-
-  // ---------- Boot ----------
-  const b64 = getParam("data");
-  const decoded = b64 ? decodeB64(b64) : null;
-  const data = normalize(decoded || demo);
-
-  applyTheme(data.timeOfDay);
-  render(data);
+  boot();
 })();
