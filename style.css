@@ -5,7 +5,184 @@
   --card2:rgba(255,255,255,.06);
   --stroke:rgba(255,255,255,.12);
   --accent:rgba(122,162,255,.95);
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --shadow: 0 10px 30px rgba(0,0,0,.35);:root{
+  --bg1: #0b1020;
+  --bg2: #0a0f1a;
+  --card: rgba(255,255,255,0.08);
+  --card2: rgba(255,255,255,0.06);
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.70);
+  --muted2: rgba(255,255,255,0.55);
+  --border: rgba(255,255,255,0.14);
+  --shadow: 0 14px 40px rgba(0,0,0,0.35);
+  --radius: 22px;
+  --pad: 16px;
+  --max: 620px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* THEMES */
+[data-theme="morning"]{
+  --bg1: #ffedd5;
+  --bg2: #dbeafe;
+  --card: rgba(255,255,255,0.72);
+  --card2: rgba(255,255,255,0.58);
+  --text: rgba(15,23,42,0.92);
+  --muted: rgba(15,23,42,0.72);
+  --muted2: rgba(15,23,42,0.55);
+  --border: rgba(15,23,42,0.12);
+  --shadow: 0 14px 40px rgba(15,23,42,0.18);
+}
+
+[data-theme="evening"]{
+  --bg1: #0f172a;
+  --bg2: #312e81;
+  --card: rgba(255,255,255,0.10);
+  --card2: rgba(255,255,255,0.08);
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.70);
+  --muted2: rgba(255,255,255,0.55);
+  --border: rgba(255,255,255,0.14);
+  --shadow: 0 14px 40px rgba(0,0,0,0.35);
+}
+
+[data-theme="night"]{
+  --bg1: #070a14;
+  --bg2: #0b1532;
+  --card: rgba(255,255,255,0.09);
+  --card2: rgba(255,255,255,0.07);
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.70);
+  --muted2: rgba(255,255,255,0.55);
+  --border: rgba(255,255,255,0.14);
+  --shadow: 0 14px 40px rgba(0,0,0,0.45);
+}
+
+/* PAGE */
+html, body { height: 100%; }
+body{
+  margin: 0;
+  font-family: var(--sans);
+  color: var(--text);
+  /* SINGLE smooth background */
+  background:
+    radial-gradient(1000px 700px at 15% 10%, rgba(255,255,255,0.14), transparent 55%),
+    radial-gradient(900px 650px at 85% 15%, rgba(255,255,255,0.10), transparent 60%),
+    linear-gradient(160deg, var(--bg1), var(--bg2));
+  background-attachment: fixed;
+}
+
+.wrap{
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 18px 14px 26px;
+}
+
+/* HERO */
+.hero{
+  padding: 6px 4px 10px;
+  margin-bottom: 10px;
+}
+.hero-top{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.greeting{
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: -0.5px;
+}
+.meta{
+  font-size: 13px;
+  color: var(--muted2);
+}
+.topSummary{
+  margin-top: 10px;
+  padding: 14px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.topSummary .line1{
+  font-size: 15px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.topSummary .line2{
+  font-size: 16px;
+  font-weight: 650;
+}
+
+/* CARDS */
+.card{
+  margin-top: 12px;
+  padding: var(--pad);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--card), var(--card2));
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.card h2{
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  letter-spacing: -0.2px;
+}
+
+.grid2{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.kv .k{
+  font-size: 12px;
+  color: var(--muted2);
+  margin-bottom: 4px;
+}
+.kv .v{
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.eventBox, .newsBox{
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.footer{
+  margin-top: 14px;
+  padding: 6px 4px 0;
+  font-size: 12px;
+  color: var(--muted2);
+}
+.footer .hint{
+  margin-top: 6px;
+  color: var(--muted2);
+}
+.footer code{
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid var(--border);
+}
+
+/* Mobile tweaks */
+@media (max-width: 420px){
+  .greeting{ font-size: 30px; }
+  .grid2{ grid-template-columns: 1fr; }
+}
+
   --radius:18px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Segoe UI, Roboto, Helvetica, Arial, sans-serif;
